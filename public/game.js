@@ -157,9 +157,13 @@
     { id: 'cakho', emoji: '🐟', name: 'Cá kho tộ', price: 35 },
     { id: 'suonxao', emoji: '🥩', name: 'Sườn xào chua ngọt', price: 35 },
     { id: 'galuoc', emoji: '🍗', name: 'Gà luộc lá chanh', price: 40 },
+    { id: 'banhxeo', emoji: '🥞', name: 'Bánh xèo', price: 30 },
+    { id: 'banhtrang', emoji: '🌯', name: 'Bánh tráng cuốn thịt heo', price: 40 },
     { id: 'bunhen', emoji: '🍜', name: 'Bún hến chấm gạch cua', price: 45 },
+    { id: 'nomchanvit', emoji: '🥗', name: 'Nộm chân vịt rút xương', price: 50 },
     { id: 'laurieubau', emoji: '🍲', name: 'Lẩu riêu cua bầu', price: 80 },
     { id: 'lauriebo', emoji: '🍲', name: 'Lẩu riêu cua bắp bò', price: 90 },
+    { id: 'lauthai', emoji: '🍲', name: 'Lẩu Thái', price: 95 },
   ];
   // Bàn ăn rộng 280 (= 4 viên gạch lát sàn) × sâu 70 (mặt bàn từ y-70 tới y).
   const REST_TABLES = [{ x: 420, y: 720 }, { x: 980, y: 720 }];
@@ -168,13 +172,17 @@
   REST_TABLES.forEach(function (t, ti) {
     [-90, 0, 90].forEach(function (dx) {
       // ghế sau bàn lùi xa hơn, ghế trước bàn kéo sát lại
-      REST_SEATS.push({ x: t.x + dx, y: t.y - 80, table: ti }, { x: t.x + dx, y: t.y + 64, table: ti });
+      REST_SEATS.push({ x: t.x + dx, y: t.y - 80, table: ti }, { x: t.x + dx, y: t.y + 50, table: ti });
     });
   });
   const RECEPTION = { x: 205, y: 470 };   // chỗ đứng lễ tân (sau quầy)
   const KITCHEN = { x: 1230, y: 540 };    // phục vụ đứng chờ ở cửa bếp
   const REST_PLANTS = [{ x: 60, y: 620 }, { x: 60, y: 965 }, { x: 1340, y: 965 }, { x: 1340, y: 640 }];
-  const REST_OBSTACLES = REST_PLANTS.map(function (p) { return { x: p.x, y: p.y - 6, r: 22 }; });
+  const TRA_DA = { x: 1060, y: 520 };   // bình trà đá đỏ miễn phí, cạnh quầy chị Liễu
+  const DRINK_MS = 5000;
+  const ONG_DIA = { x: 380, y: 500 };   // bàn thờ Ông Địa đặt sát đất, cạnh quầy lễ tân
+  const REST_OBSTACLES = REST_PLANTS.map(function (p) { return { x: p.x, y: p.y - 6, r: 22 }; })
+    .concat([{ x: ONG_DIA.x, y: ONG_DIA.y - 12, r: 36 }, { x: TRA_DA.x, y: TRA_DA.y - 6, r: 20 }]);
   REST_TABLES.forEach(function (t) {
     [-100, -33, 33, 100].forEach(function (dx) { REST_OBSTACLES.push({ x: t.x + dx, y: t.y - 30, r: 44 }); });
   });
@@ -753,6 +761,66 @@
       E(-11, -6, 2.6, 1.3, '#4c9a3e');                              // rau thơm
       E(8, -1, 6.4, 3.6, '#f4f6f8');                                // bát chấm
       E(8, -2, 5, 2.6, '#d9692a'); E(7, -2.6, 2, 1, '#f0a04a');     // gạch cua
+    } else if (id === 'banhxeo') {
+      plate();
+      E(-10, -1, 5, 2.6, '#7fb847'); E(-12, -4, 3.6, 2, '#5aa847');         // xà lách, rau thơm
+      c.fillStyle = '#f0b72f';                                             // vỏ bánh vàng giòn, gập đôi
+      c.beginPath(); c.moveTo(-6, 2); c.quadraticCurveTo(-5, -10, 5, -9); c.quadraticCurveTo(14, -6, 13, 2); c.closePath(); c.fill();
+      c.strokeStyle = '#c98a1a'; c.lineWidth = 1; c.stroke();
+      c.fillStyle = '#d99a22';                                             // vết cháy giòn
+      [[0, -6], [6, -5], [9, -2]].forEach(function (p) { c.beginPath(); c.arc(p[0], p[1], 1.2, 0, Math.PI * 2); c.fill(); });
+      c.strokeStyle = '#f2ece2'; c.lineWidth = 1.2;                         // giá đỗ thò ra
+      [[-4, 1, -8, 3], [-3, 0, -7, -1]].forEach(function (s) { c.beginPath(); c.moveTo(s[0], s[1]); c.lineTo(s[2], s[3]); c.stroke(); });
+      E(-4, -1, 2.2, 1.4, '#f08a6a');                                      // tôm
+    } else if (id === 'banhtrang') {
+      plate();
+      c.fillStyle = '#f0e0d0';                                             // thịt heo luộc thái lát
+      [[-9, -4], [-5, -6], [-1, -5]].forEach(function (p) {
+        c.beginPath(); c.ellipse(p[0], p[1], 4, 1.8, -0.2, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#f2ece2'; c.fillRect(p[0] - 3.5, p[1] - 0.6, 7, 0.9); c.fillStyle = '#f0e0d0';
+      });
+      E(-10, 0, 4, 2.2, '#5aa847'); E(-5, 1, 3.6, 1.8, '#7fb847');         // rau sống
+      c.fillStyle = '#f6f1e2';                                             // bánh tráng cuốn (2 cuốn trong, thấy rau + thịt)
+      [[4, -4], [7, 0]].forEach(function (p) {
+        c.save(); c.translate(p[0], p[1]); c.rotate(-0.25);
+        c.fillStyle = 'rgba(246,241,226,.95)'; c.fillRect(-7, -2.6, 14, 5.2);
+        c.fillStyle = 'rgba(90,168,71,.55)'; c.fillRect(-6, -1.6, 12, 1.4);
+        c.fillStyle = 'rgba(230,160,150,.6)'; c.fillRect(-6, 0.4, 12, 1.2);
+        c.restore();
+      });
+      E(12, -6, 3.4, 2.2, '#f4f6f8'); E(12, -6.4, 2.4, 1.4, '#a8572a');    // chén mắm nêm
+    } else if (id === 'nomchanvit') {
+      plate();
+      c.strokeStyle = '#e8822a'; c.lineWidth = 1.2;                        // cà rốt thái sợi
+      [[-10, -1, -3, -5], [2, 1, 9, -3], [-6, 2, 1, -2]].forEach(function (s) { c.beginPath(); c.moveTo(s[0], s[1]); c.lineTo(s[2], s[3]); c.stroke(); });
+      c.strokeStyle = '#efe0ef'; c.lineWidth = 1;                          // hành tây
+      [[-4, -3], [6, -1]].forEach(function (p) { c.beginPath(); c.arc(p[0], p[1], 2.4, Math.PI, Math.PI * 2); c.stroke(); });
+      c.fillStyle = '#f0dcb8';                                             // chân vịt rút xương
+      [[-7, -4, 0.4], [1, -6, -0.3], [7, -3, 0.2], [-2, -1, -0.5]].forEach(function (p) {
+        c.save(); c.translate(p[0], p[1]); c.rotate(p[2]);
+        c.beginPath(); c.ellipse(0, 0, 4.4, 1.8, 0, 0, Math.PI * 2); c.fill();
+        c.restore();
+      });
+      E(-9, -5, 2, 1, '#3d8b3a'); E(4, -8, 2, 1, '#3d8b3a'); E(9, -6, 1.8, 1, '#4c9a3e'); // rau răm
+      c.fillStyle = '#a8743a';                                             // lạc rang
+      [[-3, -7], [3, -2], [-8, 0], [10, -1]].forEach(function (p) { c.beginPath(); c.arc(p[0], p[1], 1, 0, Math.PI * 2); c.fill(); });
+      c.fillStyle = '#d63a2a'; c.fillRect(5, -5, 2.4, 1.2);                // ớt
+      E(12, 0, 2.6, 1.8, '#c8e06a'); E(12, 0, 1.4, 1, '#e6f2a6');          // lát chanh
+    } else if (id === 'lauthai') {
+      E(0, 6, 17, 5, 'rgba(0,0,0,.22)');                                   // nồi lẩu
+      c.fillStyle = '#5d6b78';
+      c.beginPath(); c.moveTo(-15, -4); c.quadraticCurveTo(-15, 8, 0, 8); c.quadraticCurveTo(15, 8, 15, -4); c.closePath(); c.fill();
+      c.fillStyle = '#3a434d'; c.fillRect(-19, -4, 4, 2.4); c.fillRect(15, -4, 4, 2.4);
+      E(0, -4, 15, 5, '#e8622a');                                          // nước lẩu chua cay
+      c.strokeStyle = '#f2a0a0'; c.lineWidth = 2.2;                         // tôm cong
+      [[-7, -5], [4, -6]].forEach(function (p) { c.beginPath(); c.arc(p[0], p[1], 2.6, Math.PI * 0.1, Math.PI * 1.2); c.stroke(); });
+      E(0, -3, 2.6, 1.6, '#c9a27a'); E(9, -3, 2.4, 1.5, '#c9a27a');          // nấm
+      c.strokeStyle = '#c8d98a'; c.lineWidth = 1.4;                         // sả
+      c.beginPath(); c.moveTo(-11, -2); c.lineTo(-4, -8); c.stroke();
+      c.fillStyle = '#c0392b'; c.fillRect(6, -7, 3, 1.4); c.fillRect(-2, -7, 3, 1.4); // ớt
+      E(10, -6, 2.2, 1, '#2f7a34');                                         // lá chanh
+      c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 1;
+      [-5, 4].forEach(function (x0) { c.beginPath(); c.moveTo(x0, -10); c.quadraticCurveTo(x0 - 3, -14, x0, -18); c.stroke(); });
     } else if (id === 'laurieubau' || id === 'lauriebo') {
       E(0, 6, 17, 5, 'rgba(0,0,0,.22)');                            // nồi lẩu
       c.fillStyle = '#5d6b78';
@@ -863,6 +931,14 @@
       list.appendChild(b);
     });
   }
+  // Trà đá miễn phí: đứng gần bình mới lấy được, uống 5 giây.
+  $('btn-tea').addEventListener('click', function () {
+    if (Math.hypot(me.x - TRA_DA.x, me.y - TRA_DA.y) > 80) { toast('Ra chỗ bình trà đá cạnh quầy chị Liễu mới lấy được nhé.'); return; }
+    me.drinkUntil = Date.now() + DRINK_MS;
+    setPose('drink');
+    toast('🧊 Trà đá miễn phí — uống cho mát!');
+  });
+
   $('btn-dine').addEventListener('click', function () {
     if (myTable() < 0) { toast('Hãy ngồi vào một bàn ăn trước.'); return; }
     renderDine();
@@ -2122,6 +2198,8 @@
       setPose('stand');
     } else if (me.pose === 'eat' && Date.now() >= me.eatUntil) {
       setPose('sit'); // ăn xong vẫn ngồi
+    } else if (me.pose === 'drink' && Date.now() >= me.drinkUntil) {
+      setPose('stand'); // uống xong, cốc biến mất
     }
     if (me.heatUntil && Date.now() >= me.heatUntil) finishHeating();
 
@@ -3204,6 +3282,160 @@
     ctx.beginPath(); ctx.arc(290, 472, 6, Math.PI, 0); ctx.fill();
     ctx.fillRect(283, 472, 14, 2);
   }
+  // Bàn thờ Ông Địa – Thần Tài đặt sát đất: bệ thấp, khám thờ ngay trên bệ, đồ cúng phía trước.
+  function drawOngDia(t) {
+    const x = ONG_DIA.x, y = ONG_DIA.y;
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 48, 8, 0, 0, Math.PI * 2); ctx.fill();
+    // khám thờ: vách sau + mái
+    ctx.fillStyle = '#9c2a20';
+    ctx.fillRect(x - 42, y - 78, 84, 58);
+    ctx.fillStyle = '#5a1410';
+    ctx.beginPath(); ctx.moveTo(x - 36, y - 20); ctx.lineTo(x - 36, y - 64); ctx.quadraticCurveTo(x, y - 78, x + 36, y - 64); ctx.lineTo(x + 36, y - 20); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#7a1f16';
+    ctx.beginPath(); ctx.moveTo(x - 50, y - 78); ctx.lineTo(x + 50, y - 78); ctx.lineTo(x + 38, y - 90); ctx.lineTo(x - 38, y - 90); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#e8b64c';
+    ctx.fillRect(x - 50, y - 80, 100, 3);
+
+    // Ông Địa (trái): đầu hói tóc hai bên, cười toe, phanh áo đỏ khoe bụng, cầm quạt mo
+    const ox = x - 16;
+    ctx.fillStyle = '#c0392b';                                   // áo đỏ phanh ngực
+    ctx.beginPath(); ctx.ellipse(ox - 7, y - 32, 6, 11, 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ox + 7, y - 32, 6, 11, -0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f0c48e';                                   // bụng phệ
+    ctx.beginPath(); ctx.ellipse(ox, y - 30, 8, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c99a6a';
+    ctx.beginPath(); ctx.arc(ox, y - 29, 1, 0, Math.PI * 2); ctx.fill(); // rốn
+    ctx.fillStyle = '#f0c48e';                                   // đầu hói
+    ctx.beginPath(); ctx.arc(ox, y - 48, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2b2018';                                   // tóc hai bên
+    ctx.beginPath(); ctx.ellipse(ox - 7, y - 48, 2.2, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ox + 7, y - 48, 2.2, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#7a3a12';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ox - 3, y - 49, 1.6, Math.PI, 0); ctx.stroke();  // mắt híp cười
+    ctx.beginPath(); ctx.arc(ox + 3, y - 49, 1.6, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#9c2a20';                                   // miệng cười toe
+    ctx.beginPath(); ctx.arc(ox, y - 45, 3.2, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = '#d9b26a';                                   // quạt mo
+    ctx.beginPath(); ctx.ellipse(ox - 15, y - 40, 5, 7, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#8a5a2b';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(ox - 13, y - 34); ctx.lineTo(ox - 10, y - 28); ctx.stroke();
+
+    // Thần Tài (phải): mũ cánh chuồn, râu dài, áo vàng đai đỏ, ôm thỏi vàng
+    const tx = x + 16;
+    ctx.fillStyle = '#d9a441';                                   // áo vàng
+    ctx.beginPath(); ctx.moveTo(tx - 8, y - 42); ctx.lineTo(tx + 8, y - 42); ctx.lineTo(tx + 12, y - 21); ctx.lineTo(tx - 12, y - 21); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(tx - 9, y - 33, 18, 2.5);                       // đai đỏ
+    ctx.fillStyle = '#f0c48e';
+    ctx.beginPath(); ctx.arc(tx, y - 49, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1d1d1f';                                   // râu dài
+    ctx.beginPath(); ctx.moveTo(tx - 4, y - 46); ctx.lineTo(tx + 4, y - 46); ctx.lineTo(tx, y - 34); ctx.closePath(); ctx.fill();
+    ctx.fillRect(tx - 5, y - 47.5, 10, 1.6);                     // ria mép
+    ctx.fillRect(tx - 7, y - 59, 14, 5);                         // mũ cánh chuồn
+    ctx.fillRect(tx - 4, y - 63, 8, 4);
+    ctx.beginPath(); ctx.ellipse(tx - 11, y - 57, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(tx + 11, y - 57, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f2c230';                                   // thỏi vàng
+    ctx.beginPath(); ctx.moveTo(tx - 7, y - 28); ctx.quadraticCurveTo(tx, y - 22, tx + 7, y - 28); ctx.lineTo(tx + 4, y - 31); ctx.quadraticCurveTo(tx, y - 27, tx - 4, y - 31); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe58a';
+    ctx.beginPath(); ctx.ellipse(tx, y - 30, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+
+    // bệ thờ thấp sát đất (kệ đặt đồ cúng)
+    ctx.fillStyle = '#9c2a20';
+    ctx.fillRect(x - 48, y - 20, 96, 20);
+    ctx.fillStyle = '#7a1f16';
+    ctx.fillRect(x - 50, y - 22, 100, 5);
+    ctx.strokeStyle = '#e8b64c';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 45, y - 15, 90, 12);
+
+    // đèn dầu hai góc mái
+    [x - 44, x + 44].forEach(function (lx, i) {
+      const g = ctx.createRadialGradient(lx, y - 26, 1, lx, y - 26, 11);
+      g.addColorStop(0, 'rgba(255,190,90,' + (0.6 + Math.sin(t / 150 + i) * 0.15) + ')');
+      g.addColorStop(1, 'rgba(255,190,90,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(lx, y - 26, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c0392b';
+      ctx.fillRect(lx - 3, y - 23, 6, 4);
+      ctx.fillStyle = '#ffcf5c';
+      ctx.beginPath(); ctx.ellipse(lx, y - 26, 1.5, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+    });
+    // bình hoa cúc vàng (trái)
+    ctx.strokeStyle = '#3d8b3a';
+    ctx.lineWidth = 1.2;
+    [[-5, -13], [0, -17], [5, -12]].forEach(function (s) { ctx.beginPath(); ctx.moveTo(x - 32, y - 26); ctx.lineTo(x - 32 + s[0], y - 26 + s[1]); ctx.stroke(); });
+    ctx.fillStyle = '#f2c230';
+    [[-5, -13], [0, -17], [5, -12]].forEach(function (s) { ctx.beginPath(); ctx.arc(x - 32 + s[0], y - 26 + s[1], 3.4, 0, Math.PI * 2); ctx.fill(); });
+    ctx.fillStyle = '#3b6fb6';
+    ctx.fillRect(x - 36, y - 28, 8, 7);
+    // bát hương + 3 nén nhang (giữa, giữa hai tượng)
+    ctx.fillStyle = '#b8862e';
+    ctx.beginPath(); ctx.moveTo(x - 7, y - 28); ctx.lineTo(x + 7, y - 28); ctx.lineTo(x + 5, y - 21); ctx.lineTo(x - 5, y - 21); ctx.closePath(); ctx.fill();
+    [-3, 0, 3].forEach(function (dx, i) {
+      ctx.strokeStyle = '#8b2a1a';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x + dx, y - 28); ctx.lineTo(x + dx * 1.4, y - 46); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,120,40,' + (0.7 + Math.sin(t / 200 + i) * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(x + dx * 1.4, y - 46, 1.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(230,220,210,.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x + dx * 1.4, y - 47);
+      for (let k = 1; k <= 6; k++) ctx.lineTo(x + dx * 1.4 + Math.sin(t / 700 + k * 0.7 + i) * k * 0.8, y - 47 - k * 4);
+      ctx.stroke();
+    });
+    // đĩa quả cúng (phải)
+    ctx.fillStyle = '#d9a441';
+    ctx.beginPath(); ctx.ellipse(x + 32, y - 23, 10, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#f0d27a';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(x + 29, y - 30, 6, Math.PI * 0.1, Math.PI * 0.8); ctx.stroke();
+    [[-5, -26], [0, -26], [5, -26], [-2, -31], [3, -31], [0, -36]].forEach(function (f, k) {
+      ctx.fillStyle = k === 5 ? '#c0392b' : '#f39c12';
+      ctx.beginPath(); ctx.arc(x + 32 + f[0], y + f[1], 2.8, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  // Bình trà đá đỏ nắp trắng trên ghế đẩu, kèm chồng cốc.
+  function drawTraDa() {
+    const x = TRA_DA.x, y = TRA_DA.y;
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 20, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5a3519';                       // ghế đẩu gỗ
+    ctx.fillRect(x - 14, y - 22, 4, 22);
+    ctx.fillRect(x + 10, y - 22, 4, 22);
+    ctx.fillStyle = '#8a5a3c';
+    ctx.fillRect(x - 18, y - 26, 36, 6);
+    ctx.fillStyle = '#d62f2a';                       // thân bình đỏ
+    ctx.beginPath(); ctx.moveTo(x - 12, y - 26); ctx.lineTo(x - 11, y - 54); ctx.quadraticCurveTo(x, y - 58, x + 11, y - 54); ctx.lineTo(x + 12, y - 26); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#b02420';
+    ctx.fillRect(x - 12, y - 44, 24, 3);
+    ctx.fillStyle = '#f4f6f8';                       // nắp trắng + quai
+    ctx.fillRect(x - 10, y - 62, 20, 6);
+    ctx.strokeStyle = '#f4f6f8';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y - 62, 6, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#f4f6f8';                       // vòi
+    ctx.fillRect(x - 3, y - 32, 6, 4);
+    ctx.fillStyle = 'rgba(220,235,245,.85)';         // chồng cốc
+    [0, 4, 8].forEach(function (dy) {
+      ctx.beginPath(); ctx.moveTo(x + 15, y - 34 + dy); ctx.lineTo(x + 25, y - 34 + dy); ctx.lineTo(x + 24, y - 27 + dy); ctx.lineTo(x + 16, y - 27 + dy); ctx.closePath(); ctx.fill();
+    });
+  }
+  // Cốc trà đá có đá viên (đang cầm uống).
+  function drawTeaGlass(gx, gy) {
+    ctx.fillStyle = 'rgba(220,235,245,.9)';
+    ctx.beginPath(); ctx.moveTo(gx - 5, gy - 8); ctx.lineTo(gx + 5, gy - 8); ctx.lineTo(gx + 4, gy + 4); ctx.lineTo(gx - 4, gy + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(176,112,40,.85)';
+    ctx.beginPath(); ctx.moveTo(gx - 4.5, gy - 4); ctx.lineTo(gx + 4.5, gy - 4); ctx.lineTo(gx + 4, gy + 4); ctx.lineTo(gx - 4, gy + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillRect(gx - 3, gy - 5, 2.6, 2.6);
+    ctx.fillRect(gx + 0.6, gy - 3, 2.4, 2.4);
+  }
+
   function drawKitchenCounter() {
     drawCounter(1100, 1370, 510, '#cfd5db', '#9aa3ab');
     // món chờ chị Liễu bưng ra
@@ -3434,6 +3666,14 @@
         ctx.beginPath(); ctx.ellipse(0, -34, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
       }
       head(-62);
+      if (p.pose === 'drink') { // đưa cốc trà đá lên miệng
+        const ph = ((t + (p.seed || 0) * 1500) % 1500) / 1500;
+        const lift = ph < 0.3 ? ph / 0.3 : ph < 0.6 ? 1 : ph < 0.85 ? 1 - (ph - 0.6) / 0.25 : 0;
+        const gy = -32 - lift * 16;
+        drawTeaGlass(10, gy);
+        ctx.fillStyle = SKIN;
+        ctx.beginPath(); ctx.ellipse(12, gy + 4, 4, 4.6, 0, 0, Math.PI * 2); ctx.fill();
+      }
       ctx.restore();
       topOfHead = -75 - bob;
     }
@@ -3678,7 +3918,9 @@
       drawRestFloor();
       items.push({ y: RECEPTION.y, draw: function () { drawNpc(NPC_RECEPTION, RECEPTION.x, RECEPTION.y, now, 'Lễ tân'); } });
       items.push({ y: 520, draw: drawReception });
+      items.push({ y: ONG_DIA.y, draw: function () { drawOngDia(now); } });
       items.push({ y: 510, draw: drawKitchenCounter });
+      items.push({ y: TRA_DA.y, draw: drawTraDa });
       REST_PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
       REST_TABLES.forEach(function (t, ti) { items.push({ y: t.y, draw: function () { drawRestTable(t, ti, Date.now()); } }); });
       REST_SEATS.forEach(function (s) { items.push({ y: s.y - 1, draw: function () { drawStool(s); } }); });

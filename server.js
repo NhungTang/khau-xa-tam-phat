@@ -23,7 +23,7 @@ const OFFERING_IDS = ['nen', 'tra', 'hoa', 'den', 'qua'];
 const RACK_SIZE = 60;                      // kệ dép ngoài cửa chùa
 const SHOE_IDS = ['deptoong', 'depda', 'haivang'];
 // Nhà hàng: món trong menu (giá tính ở client, trả bằng lương), 2 bàn ăn.
-const MENU_IDS = ['comtrang', 'trungran', 'raumuong', 'dauphu', 'nemran', 'canhchua', 'thitkho', 'cakho', 'suonxao', 'galuoc', 'bunhen', 'lauriebo', 'laurieubau'];
+const MENU_IDS = ['comtrang', 'trungran', 'raumuong', 'dauphu', 'nemran', 'canhchua', 'thitkho', 'cakho', 'suonxao', 'galuoc', 'bunhen', 'lauriebo', 'laurieubau', 'banhxeo', 'lauthai', 'nomchanvit', 'banhtrang'];
 const REST_TABLES = [{ x: 420, y: 720 }, { x: 980, y: 720 }];
 const DISH_PREP_MS = 4000;                 // phục vụ mang món ra trong 4 giây
 const MAX_DISHES_PER_TABLE = 10;         // tối đa 10 món một bàn (được gọi trùng món)
@@ -64,7 +64,7 @@ function getRoom(key) {
   return room;
 }
 
-const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow', 'eat', 'sleep'];
+const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow', 'eat', 'sleep', 'drink'];
 const ITEM_ID = /^[a-z]{1,12}$/;
 
 function clampNum(v, min, max, def) {

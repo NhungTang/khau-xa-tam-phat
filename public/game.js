@@ -114,7 +114,7 @@
   }
   function overlayOpen() {
     return !$('sutra').classList.contains('hidden') || !$('welcome').classList.contains('hidden') ||
-      !$('food').classList.contains('hidden');
+      !$('food').classList.contains('hidden') || !$('quiz').classList.contains('hidden');
   }
 
   window.addEventListener('keydown', function (e) {
@@ -188,7 +188,13 @@
     const text = input.value.trim().slice(0, 120);
     if (!text) return;
     if (window.hasProfanity(text)) {
-      toast('Lời nói chưa thanh tịnh — tin nhắn có từ ngữ không phù hợp nên chưa được gửi.');
+      if (doneToday()) {
+        // Đã chép kinh hôm nay mà nói bậy → huỷ bài hôm nay, phải chép lại.
+        cancelToday();
+        toast('Tâm chưa tịnh — bạn phải chép lại kinh hôm nay. Tin nhắn chưa được gửi.', 6000);
+      } else {
+        toast('Lời nói chưa thanh tịnh — tin nhắn có từ ngữ không phù hợp nên chưa được gửi.');
+      }
       return;
     }
     input.value = '';
@@ -197,12 +203,12 @@
   });
 
   let toastTimer = 0;
-  function toast(msg) {
+  function toast(msg, ms) {
     const el = $('toast');
     el.textContent = msg;
     el.classList.remove('hidden');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.add('hidden'); }, 4000);
+    toastTimer = setTimeout(function () { el.classList.add('hidden'); }, ms || 4000);
   }
 
   // ---------- Mạng (SSE + POST) ----------
@@ -380,6 +386,18 @@
       .trim();
   }
 
+  // Tâm chưa tịnh (nói bậy / trả lời sai câu hỏi) → huỷ bài chép hôm nay, trừ 1 ngày.
+  function cancelToday() {
+    if (!doneToday()) return;
+    const days = Math.max(0, getDays() - 1);
+    store.set(K.days, String(days));
+    store.del(K.doneDate);
+    me.days = days;
+    me.lotusUntil = 0;
+    lastSent = '';
+    updateSutraBadge();
+  }
+
   function updateSutraBadge() {
     $('sutra-badge').textContent = doneToday() ? '✓' : '•';
     $('sutra-badge').style.color = doneToday() ? '#7fd38a' : '#ff9a6a';
@@ -411,7 +429,97 @@
   }
 
   $('btn-sutra').addEventListener('click', openSutra);
-  $('sutra-close').addEventListener('click', function () { $('sutra').classList.add('hidden'); });
+  $('sutra-close').addEventListener('click', function () {
+    $('sutra').classList.add('hidden');
+    if (quizPending) {
+      quizPending = false;
+      setTimeout(showQuiz, QUIZ_DELAY_MS);
+    }
+  });
+
+  // ---------- Câu hỏi sau khi chép kinh (chỉ mình user thấy) ----------
+  const QUIZ_DELAY_MS = 30000;
+  let quizPending = false;
+  // good: câu trả lời đúng tinh thần Phật pháp; yes/no: lời nhắn sau khi chọn Có/Không.
+  const QUIZ = [
+    { q: 'Nếu bạn đi chùa thấy một đôi dép đẹp quá ở ngoài cửa, bạn có lấy không?', good: 'no',
+      yes: 'Không lấy của không cho là giới thứ hai trong Ngũ giới. Đôi dép ấy là của người khác.',
+      no: 'Lành thay! Không lấy của không cho là giữ giới.' },
+    { q: 'Nếu bị một con muỗi đốt, bạn có vỗ nó không?', good: 'no',
+      yes: 'Muỗi cũng là một sinh mạng. Thử nhẹ nhàng xua nó đi thay vì sát sinh.',
+      no: 'Lành thay! Từ bi với cả loài nhỏ bé nhất.' },
+    { q: 'Nhặt được một chiếc ví trong sân chùa, bạn có giữ lại không?', good: 'no',
+      yes: 'Hãy gửi lại nhà chùa để tìm người mất — của không cho thì không lấy.',
+      no: 'Lành thay! Trả lại của rơi là gieo hạt lành.' },
+    { q: 'Có người nói xấu bạn, bạn có nói xấu lại không?', good: 'no',
+      yes: 'Lấy oán báo oán, oán chồng chất. Giữ lời ái ngữ là giữ tâm mình.',
+      no: 'Lành thay! Nhẫn nhục là một hạnh lớn.' },
+    { q: 'Gặp người ăn xin trước cổng chùa, bạn có bố thí không?', good: 'yes',
+      yes: 'Lành thay! Bố thí dù nhỏ cũng là phước lành.',
+      no: 'Một chút lòng thành, dù ít, cũng làm ấm lòng người khác.' },
+    { q: 'Thấy người già đứng trên xe buýt, bạn có nhường ghế không?', good: 'yes',
+      yes: 'Lành thay! Kính lão đắc thọ.',
+      no: 'Một hành động nhỏ có thể giúp người khác rất nhiều.' },
+    { q: 'Người bán hàng thối dư tiền cho bạn, bạn có trả lại không?', good: 'yes',
+      yes: 'Lành thay! Ngay thẳng là nền của mọi việc lành.',
+      no: 'Số tiền dư ấy không phải của mình — trả lại thì tâm được an.' },
+    { q: 'Bạn có nói dối để khỏi bị mắng không?', good: 'no',
+      yes: 'Không nói dối là giới thứ tư trong Ngũ giới. Thật thà thì lòng nhẹ nhõm.',
+      no: 'Lành thay! Lời chân thật là lời đáng quý.' },
+    { q: 'Thấy con kiến bò trên bàn, bạn có di chết nó không?', good: 'no',
+      yes: 'Con kiến cũng tham sống sợ chết như ta. Hãy nhẹ nhàng đưa nó đi chỗ khác.',
+      no: 'Lành thay! Không sát sinh là giới đầu tiên.' },
+    { q: 'Đi chùa đông người, bạn có chen lấn để được thắp hương trước không?', good: 'no',
+      yes: 'Tâm thành quan trọng hơn đến trước. Nhường nhau là đã có phước.',
+      no: 'Lành thay! Từ tốn, nhường nhịn là nét đẹp nơi cửa Phật.' },
+    { q: 'Thấy hòm công đức không ai trông, bạn có lấy bớt vài đồng không?', good: 'no',
+      yes: 'Tiền công đức là của Tam Bảo, lấy đi là tổn phước rất nặng.',
+      no: 'Lành thay! Giữ tâm trong sạch nơi cửa Phật.' },
+    { q: 'Bạn bè rủ uống rượu say rồi lái xe về, bạn có đi không?', good: 'no',
+      yes: 'Không uống rượu say là giới thứ năm — say thì dễ làm hại mình và người.',
+      no: 'Lành thay! Giữ tỉnh táo là giữ an toàn cho mình và mọi người.' },
+    { q: 'Thấy bạn làm rơi điện thoại mà không biết, bạn có gọi lại báo không?', good: 'yes',
+      yes: 'Lành thay! Giúp người là giúp mình.',
+      no: 'Chỉ một tiếng gọi thôi đã giúp người khác bớt một phen lo lắng.' },
+    { q: 'Bố mẹ gọi điện lúc bạn đang bận chơi, bạn có tắt máy luôn không?', good: 'no',
+      yes: 'Hiếu thảo với cha mẹ là phước điền lớn nhất. Một phút nghe máy cũng là báo hiếu.',
+      no: 'Lành thay! Có hiếu với cha mẹ là gốc của mọi điều lành.' },
+    { q: 'Thấy chú chó hoang đói lả bên đường, bạn có chia cho nó chút đồ ăn không?', good: 'yes',
+      yes: 'Lành thay! Lòng từ bi không phân biệt người hay vật.',
+      no: 'Một chút đồ ăn của mình có thể là cả bữa no của một sinh linh.' },
+  ];
+
+  function showQuiz() {
+    if (!doneToday()) return; // đã bị huỷ bài (nói bậy) trong lúc chờ
+    if (overlayOpen()) { setTimeout(showQuiz, 3000); return; } // đợi đóng popup khác
+    const item = QUIZ[Math.floor(Math.random() * QUIZ.length)];
+    $('quiz-question').textContent = item.q;
+    $('quiz-answer').textContent = '';
+    $('quiz-answer').className = '';
+    $('quiz-choices').classList.remove('hidden');
+    $('quiz-close').classList.add('hidden');
+    $('quiz').dataset.idx = String(QUIZ.indexOf(item));
+    $('quiz').classList.remove('hidden');
+    keys.clear();
+  }
+  ['yes', 'no'].forEach(function (ans) {
+    $('quiz-' + ans).addEventListener('click', function () {
+      const item = QUIZ[Number($('quiz').dataset.idx)];
+      const right = ans === item.good;
+      $('quiz-answer').textContent = item[ans] +
+        (right ? '' : '\nTâm chưa tịnh — bạn phải chép lại kinh hôm nay.');
+      $('quiz-answer').className = right ? 'ok' : 'err';
+      if (!right) cancelToday();
+      $('quiz-close').textContent = right ? 'Nam mô A Di Đà Phật 🙏' : 'Chép lại kinh';
+      $('quiz-close').dataset.redo = right ? '' : '1';
+      $('quiz-choices').classList.add('hidden');
+      $('quiz-close').classList.remove('hidden');
+    });
+  });
+  $('quiz-close').addEventListener('click', function () {
+    $('quiz').classList.add('hidden');
+    if ($('quiz-close').dataset.redo) openSutra();
+  });
 
   sutraInput.addEventListener('input', function () {
     store.set(K.draft, JSON.stringify({ date: todayStr(), text: sutraInput.value }));
@@ -438,6 +546,7 @@
       me.days = days;
       lastSent = '';
       me.lotusUntil = Date.now() + LOTUS_MS;
+      quizPending = true;
       setStatus('🙏 Viên mãn! Bạn đã hoàn thành ' + days + ' ngày chép kinh.', 'ok');
       sutraInput.disabled = true;
       $('sutra-check').disabled = true;

@@ -190,6 +190,13 @@ input, textarea {
 .food-list button { display: flex; align-items: center; gap: 8px; padding: 10px; text-align: left; }
 .food-list .emoji { font-size: 24px; }
 
+.quiz-question { font-size: 17px; line-height: 1.5; text-align: center; margin: 14px 0; }
+.quiz-choices { display: flex; gap: 10px; }
+.quiz-choices button { flex: 1; padding: 12px; font-size: 16px; }
+#quiz-answer { text-align: center; line-height: 1.5; margin: 0; white-space: pre-line; }
+#quiz-answer.ok { color: var(--ok); font-weight: 600; }
+#quiz-answer.err { color: var(--err); }
+
 #toast {
   position: fixed;
   left: 50%;

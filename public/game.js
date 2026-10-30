@@ -38,6 +38,21 @@
     [520, 610, 790, 880].forEach(function (x) { CUSHIONS.push({ x: x, y: y }); });
   });
 
+  // ---------- Công sở ----------
+  const DEFAULT_OFFICE_NAME = 'Nhân viên';
+  const BADMOUTH_MS = 10000;     // mặt người bị nói xấu đen trong 10 giây
+  const REPENT_DELAY_MS = 10000; // 10 giây sau khi nói xấu / nói bậy → nhắc đi chùa sám hối
+  const DESKS = [];
+  [580, 820].forEach(function (y) {
+    [300, 560, 840, 1100].forEach(function (x) { DESKS.push({ x: x, y: y }); });
+  });
+  const CHAIRS = DESKS.map(function (d) { return { x: d.x, y: d.y + 48 }; });
+  const PLANTS = [{ x: 70, y: 490 }, { x: 1330, y: 490 }];
+  const OFFICE_OBSTACLES = PLANTS.map(function (p) { return { x: p.x, y: p.y - 6, r: 22 }; });
+  DESKS.forEach(function (d) {
+    OFFICE_OBSTACLES.push({ x: d.x - 50, y: d.y - 20, r: 34 }, { x: d.x + 50, y: d.y - 20, r: 34 });
+  });
+
   // ---------- Lưu trữ local ----------
   const store = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -50,6 +65,8 @@
     doneDate: 'kxtp_done_date',
     draft: 'kxtp_draft',
     music: 'kxtp_music',
+    officeName: 'kxtp_office_name',
+    gender: 'kxtp_gender',
   };
 
   function todayStr() {
@@ -70,13 +87,18 @@
     name: DEFAULT_NAME,
     x: 700, y: 840, dir: 1,
     pose: 'stand',
+    gender: store.get(K.gender) === 'f' ? 'f' : 'm',
     days: getDays(),
     target: null,
   };
   const others = new Map();
   const bubbles = new Map();
   const keys = new Set();
+  const blackFaces = new Map(); // id → thời điểm hết mặt đen
   let started = false;
+  let scene = 'temple'; // 'temple' | 'office'
+  let templeName = DEFAULT_NAME;
+  let officeName = DEFAULT_OFFICE_NAME;
 
   // ---------- DOM ----------
   const $ = function (id) { return document.getElementById(id); };
@@ -87,6 +109,7 @@
   // ---------- Màn chào / tên ----------
   const nameInput = $('name-input');
   nameInput.value = store.get(K.name) || '';
+  document.querySelector('input[name="gender"][value="' + me.gender + '"]').checked = true;
   setTimeout(function () { nameInput.focus(); }, 50);
 
   $('name-form').addEventListener('submit', function (e) {
@@ -95,6 +118,7 @@
     if (typed) store.set(K.name, typed);
     else store.del(K.name);
     me.name = typed || DEFAULT_NAME;
+    templeName = me.name;
     $('welcome').classList.add('hidden');
     $('topbar').classList.remove('hidden');
     $('bottombar').classList.remove('hidden');
@@ -113,8 +137,7 @@
     return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
   }
   function overlayOpen() {
-    return !$('sutra').classList.contains('hidden') || !$('welcome').classList.contains('hidden') ||
-      !$('food').classList.contains('hidden') || !$('quiz').classList.contains('hidden');
+    return !!document.querySelector('.overlay:not(.hidden)');
   }
 
   window.addEventListener('keydown', function (e) {
@@ -133,9 +156,9 @@
       e.preventDefault();
     } else if (k === '1') setPose('stand');
     else if (k === '2') setPose('sit');
-    else if (k === '3') setPose('kneel');
-    else if (k === '4') setPose('bow');
-    else if (k === '5') openFood();
+    else if (k === '3' && scene === 'temple') setPose('kneel');
+    else if (k === '4' && scene === 'temple') setPose('bow');
+    else if (k === '5' && scene === 'temple') openFood();
   });
   window.addEventListener('keyup', function (e) { keys.delete(e.key.toLowerCase()); });
   window.addEventListener('blur', function () { keys.clear(); });
@@ -154,6 +177,14 @@
   });
 
   function setPose(pose) {
+    if (pose === 'sit' && scene === 'office') {
+      let best = null, bestD = 70;
+      CHAIRS.forEach(function (ch) {
+        const d = Math.hypot(me.x - ch.x, me.y - ch.y);
+        if (d < bestD) { best = ch; bestD = d; }
+      });
+      if (best) { me.x = best.x; me.y = best.y + 2; }
+    }
     me.pose = pose;
     me.target = null;
     me.poseStart = performance.now();
@@ -187,7 +218,7 @@
     const input = $('chat-input');
     const text = input.value.trim().slice(0, 120);
     if (!text) return;
-    if (window.hasProfanity(text)) {
+    if (scene === 'temple' && window.hasProfanity(text)) {
       if (doneToday()) {
         // Đã chép kinh hôm nay mà nói bậy → huỷ bài hôm nay, phải chép lại.
         cancelToday();
@@ -199,7 +230,8 @@
     }
     input.value = '';
     bubbles.set(me.id, { text: text, until: Date.now() + CHAT_MS });
-    post('/api/chat', { id: me.id, text: text });
+    post('/api/chat', { id: me.id, text: text, scene: scene });
+    if (scene === 'office' && window.hasProfanity(text)) scheduleRepent();
   });
 
   let toastTimer = 0;
@@ -232,9 +264,10 @@
       .then(function () { if (timer) clearTimeout(timer); });
   }
 
+  let es = null;
   function connect() {
     if (!online || !window.EventSource) return;
-    const es = new EventSource('/api/events?id=' + encodeURIComponent(me.id));
+    es = new EventSource('/api/events?id=' + encodeURIComponent(me.id) + '&scene=' + scene);
     es.addEventListener('snapshot', function (ev) {
       const list = JSON.parse(ev.data);
       const seen = new Set();
@@ -253,6 +286,14 @@
       if (c.id === me.id) return;
       bubbles.set(c.id, { text: c.text, until: Date.now() + CHAT_MS });
     });
+    es.addEventListener('badmouth', function (ev) {
+      const b = JSON.parse(ev.data);
+      blackFaces.set(b.target, Date.now() + BADMOUTH_MS);
+      if (b.target === me.id) {
+        const o = others.get(b.from);
+        toast((o ? o.name : 'Một đồng nghiệp') + ' vừa nói xấu bạn!');
+      }
+    });
     es.addEventListener('leave', function (ev) {
       const id = JSON.parse(ev.data).id;
       others.delete(id);
@@ -265,9 +306,9 @@
   function syncState(now) {
     if (!online || !connected || inFlight) return;
     const payload = {
-      id: me.id, name: me.name,
+      id: me.id, name: me.name, scene: scene,
       x: Math.round(me.x), y: Math.round(me.y),
-      dir: me.dir, pose: me.pose, days: me.days,
+      dir: me.dir, pose: me.pose, days: me.days, gender: me.gender,
       food: me.pose === 'eat' ? me.food : undefined,
       lotus: Date.now() < (me.lotusUntil || 0),
     };
@@ -280,24 +321,111 @@
     post('/api/state', payload).then(function () { inFlight = false; });
   }
 
+  // ---------- Đi làm / đi chùa ----------
+  function switchScene(next) {
+    scene = next;
+    document.body.classList.toggle('office', next === 'office');
+    $('brand').textContent = next === 'office' ? '🏢 Đời là bể khổ' : '卍 Khẩu Xà Tâm Phật';
+    if (es) es.close();
+    connected = false;
+    others.clear();
+    bubbles.clear();
+    blackFaces.clear();
+    keys.clear();
+    me.x = 700;
+    me.y = next === 'office' ? 940 : 840;
+    me.name = next === 'office' ? officeName : templeName;
+    setPose('stand');
+    $('online-count').textContent = 1;
+    lastSent = '';
+    connect();
+    if (musicOn) startMusic(); // đổi nhạc theo cảnh
+  }
+
+  const officeInput = $('office-name-input');
+  $('btn-work').addEventListener('click', function () {
+    officeInput.value = store.get(K.officeName) || '';
+    $('office').classList.remove('hidden');
+    keys.clear();
+    setTimeout(function () { officeInput.focus(); }, 50);
+  });
+  $('office-close').addEventListener('click', function () { $('office').classList.add('hidden'); });
+  $('office-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const typed = officeInput.value.trim().slice(0, 24);
+    if (typed) store.set(K.officeName, typed);
+    else store.del(K.officeName);
+    officeName = typed || DEFAULT_OFFICE_NAME;
+    me.gender = document.querySelector('input[name="gender"]:checked').value === 'f' ? 'f' : 'm';
+    store.set(K.gender, me.gender);
+    officeInput.blur();
+    $('office').classList.add('hidden');
+    switchScene('office');
+  });
+  $('btn-temple').addEventListener('click', function () { switchScene('temple'); });
+
+  // Nói xấu đồng nghiệp: chọn một người đang ở văn phòng → mặt họ đen 10 giây.
+  $('btn-badmouth').addEventListener('click', function () {
+    if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
+    const list = $('badmouth-list');
+    list.textContent = '';
+    others.forEach(function (o, id) {
+      const b = document.createElement('button');
+      b.textContent = o.name || DEFAULT_OFFICE_NAME;
+      b.addEventListener('click', function () { badmouth(id, o.name); });
+      list.appendChild(b);
+    });
+    $('badmouth').classList.remove('hidden');
+    keys.clear();
+  });
+  $('badmouth-close').addEventListener('click', function () { $('badmouth').classList.add('hidden'); });
+
+  function badmouth(id, name) {
+    $('badmouth').classList.add('hidden');
+    blackFaces.set(id, Date.now() + BADMOUTH_MS);
+    post('/api/badmouth', { id: me.id, target: id });
+    toast('Bạn vừa nói xấu ' + (name || DEFAULT_OFFICE_NAME) + '…');
+    scheduleRepent();
+  }
+
+  // Chỉ mình user thấy: nhắc đi chùa sám hối (nhiều lần vi phạm liền nhau → chỉ một popup).
+  let repentTimer = 0;
+  function scheduleRepent() {
+    clearTimeout(repentTimer);
+    repentTimer = setTimeout(showRepent, REPENT_DELAY_MS);
+  }
+  function showRepent() {
+    if (scene !== 'office') return; // đã tự về chùa
+    if (overlayOpen()) { repentTimer = setTimeout(showRepent, 3000); return; }
+    $('repent').classList.remove('hidden');
+    keys.clear();
+  }
+  $('repent-yes').addEventListener('click', function () {
+    $('repent').classList.add('hidden');
+    switchScene('temple');
+  });
+  $('repent-no').addEventListener('click', function () { $('repent').classList.add('hidden'); });
+
   // ---------- Nhạc nền ----------
   let musicOn = false;
   let useSynth = false;
   bgm.volume = 0.6;
   bgm.addEventListener('error', function () {
     useSynth = true;
-    if (musicOn) synth.start();
+    if (musicOn && scene === 'temple') synth.start('temple');
   });
 
   function startMusic() {
     musicOn = true;
-    if (useSynth) { synth.start(); return; }
+    if (scene === 'office') { bgm.pause(); synth.start('office'); return; } // nhạc căng thẳng
+    synth.stop();
+    if (useSynth) { synth.start('temple'); return; }
     const p = bgm.play();
     if (p && p.catch) {
       p.catch(function (err) {
         if (err && err.name === 'NotAllowedError') return;
         useSynth = true;
-        if (musicOn) synth.start();
+        if (musicOn && scene === 'temple') synth.start('temple');
       });
     }
   }
@@ -330,6 +458,7 @@
       o.start(t);
       o.stop(t + dur + 0.05);
     }
+    let mode = 'temple';
     function tick() {
       tone(beat % 2 ? 560 : 520, 0.12, 0.35, 'triangle'); // mõ
       if (beat % 16 === 0) {                                // chuông
@@ -337,6 +466,18 @@
         tone(392.5, 3, 0.08, 'sine');
         tone(589, 2, 0.04, 'sine');
       }
+      beat++;
+    }
+    // Văn phòng: đồng hồ tích tắc dồn dập + bass dồn nhịp + hợp âm nghịch tai.
+    const OFFICE_BASS = [55, 55, 55, 58.27, 55, 55, 61.74, 58.27]; // A1 … Bb1, B1: cách nửa cung → căng
+    function officeTick() {
+      tone(beat % 2 ? 1500 : 1800, 0.03, 0.06, 'square');                // tích tắc
+      if (beat % 2 === 0) tone(OFFICE_BASS[(beat / 2) % 8], 0.2, 0.16, 'sawtooth');
+      if (beat % 16 === 0) {                                              // hợp âm quãng 2 thứ
+        tone(220, 1.6, 0.05, 'sawtooth');
+        tone(233.08, 1.6, 0.05, 'sawtooth');
+      }
+      if (beat % 32 === 24) tone(880, 0.5, 0.04, 'triangle');             // "tin nhắn sếp"
       beat++;
     }
     return {
@@ -351,12 +492,16 @@
         src.connect(ac.destination);
         src.start(0);
       },
-      start: function () {
-        if (timer || !ac) return;
+      start: function (m) {
+        m = m === 'office' ? 'office' : 'temple';
+        if (!ac || (timer && mode === m)) return;
+        if (timer) clearInterval(timer);
+        mode = m;
         if (ac.resume) ac.resume();
         beat = 0;
-        tick();
-        timer = setInterval(tick, 720);
+        const fn = m === 'office' ? officeTick : tick;
+        fn();
+        timer = setInterval(fn, m === 'office' ? 230 : 720);
       },
       stop: function () {
         if (timer) clearInterval(timer);
@@ -491,7 +636,7 @@
 
   function showQuiz() {
     if (!doneToday()) return; // đã bị huỷ bài (nói bậy) trong lúc chờ
-    if (overlayOpen()) { setTimeout(showQuiz, 3000); return; } // đợi đóng popup khác
+    if (overlayOpen() || scene !== 'temple') { setTimeout(showQuiz, 3000); return; } // đợi đóng popup khác / về chùa
     const item = QUIZ[Math.floor(Math.random() * QUIZ.length)];
     $('quiz-question').textContent = item.q;
     $('quiz-answer').textContent = '';
@@ -594,7 +739,9 @@
     camX = vw >= W ? (W - vw) / 2 : clamp(me.x - vw / 2, 0, W - vw);
     // Đến gần bát hương thì camera không lên cao quá đỉnh tượng (chừa 60 cho thanh trên),
     // miễn nhân vật vẫn nằm trong 75% chiều cao màn hình.
-    const followY = Math.min(me.y - vh * 0.62, Math.max(STATUE_TOP - 60, me.y - vh * 0.75));
+    const followY = scene === 'temple'
+      ? Math.min(me.y - vh * 0.62, Math.max(STATUE_TOP - 60, me.y - vh * 0.75))
+      : me.y - vh * 0.62;
     camY = vh >= H ? (H - vh) / 2 : clamp(followY, 0, H - vh);
   }
   function screenToWorld(sx, sy) {
@@ -622,7 +769,7 @@
       const ox = me.x, oy = me.y;
       me.x = clamp(me.x + (vx / len) * SPEED * dt, BOUNDS.minX, BOUNDS.maxX);
       me.y = clamp(me.y + (vy / len) * SPEED * dt, BOUNDS.minY, BOUNDS.maxY);
-      OBSTACLES.forEach(function (o) {
+      (scene === 'office' ? OFFICE_OBSTACLES : OBSTACLES).forEach(function (o) {
         const dx = me.x - o.x, dy = me.y - o.y;
         const d = Math.hypot(dx, dy) || 0.01;
         if (d < o.r + BODY_R) {
@@ -884,6 +1031,140 @@
     });
   }
 
+  // ---------- Vẽ công sở ----------
+  function drawOfficeWall() {
+    const g = ctx.createLinearGradient(0, 0, 0, FLOOR_TOP);
+    g.addColorStop(0, '#cfd8e0');
+    g.addColorStop(1, '#b7c3cd');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, FLOOR_TOP);
+    // trần + đèn
+    ctx.fillStyle = '#eef2f5';
+    ctx.fillRect(0, 0, W, 36);
+    ctx.fillStyle = '#fffbe6';
+    [250, 550, 850, 1150].forEach(function (x) { ctx.fillRect(x - 60, 30, 120, 8); });
+    // cửa sổ nhìn ra phố
+    [140, 420, 980, 1260].forEach(function (x) {
+      ctx.fillStyle = '#5d6b78';
+      ctx.fillRect(x - 84, 90, 168, 200);
+      const sky = ctx.createLinearGradient(0, 96, 0, 284);
+      sky.addColorStop(0, '#8ec5ea');
+      sky.addColorStop(1, '#d8eefa');
+      ctx.fillStyle = sky;
+      ctx.fillRect(x - 78, 96, 156, 188);
+      ctx.fillStyle = 'rgba(90,110,130,.55)';
+      ctx.fillRect(x - 70, 200, 30, 84);
+      ctx.fillRect(x - 34, 170, 26, 114);
+      ctx.fillRect(x + 4, 215, 34, 69);
+      ctx.fillRect(x + 44, 185, 28, 99);
+      ctx.fillStyle = '#5d6b78';
+      ctx.fillRect(x - 2, 96, 4, 188);
+      ctx.fillRect(x - 78, 188, 156, 4);
+    });
+    // bảng trắng KPI
+    ctx.fillStyle = '#8a959f';
+    ctx.fillRect(588, 96, 224, 150);
+    ctx.fillStyle = '#fbfcfd';
+    ctx.fillRect(594, 102, 212, 138);
+    ctx.strokeStyle = '#3b6fb6';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(610, 220); ctx.lineTo(650, 190); ctx.lineTo(690, 205); ctx.lineTo(740, 150); ctx.lineTo(790, 125);
+    ctx.stroke();
+    ctx.fillStyle = '#c0392b';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('KPI Q4', 606, 108);
+    // đồng hồ (giờ thật)
+    const d = new Date();
+    const cx = 700, cy = 320;
+    ctx.fillStyle = '#fbfcfd';
+    ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#5d6b78';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    const hand = function (a, len, w) {
+      ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); ctx.stroke();
+    };
+    ctx.strokeStyle = '#2b2f36';
+    hand(((d.getHours() % 12) + d.getMinutes() / 60) / 12 * Math.PI * 2, 12, 3);
+    hand(d.getMinutes() / 60 * Math.PI * 2, 18, 2);
+    // chân tường
+    ctx.fillStyle = '#7d8a96';
+    ctx.fillRect(0, FLOOR_TOP - 14, W, 14);
+  }
+
+  function drawOfficeFloor() {
+    const tile = 70;
+    for (let y = FLOOR_TOP; y < H; y += tile) {
+      for (let x = 0; x < W; x += tile) {
+        const odd = ((x / tile) + Math.floor((y - FLOOR_TOP) / tile)) % 2;
+        ctx.fillStyle = odd ? '#a9b1b8' : '#b3bbc2';
+        ctx.fillRect(x, y, tile, tile);
+      }
+    }
+    ctx.strokeStyle = 'rgba(60,70,80,.18)';
+    ctx.lineWidth = 1;
+    for (let y = FLOOR_TOP; y <= H; y += tile) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    for (let x = 0; x <= W; x += tile) { ctx.beginPath(); ctx.moveTo(x, FLOOR_TOP); ctx.lineTo(x, H); ctx.stroke(); }
+  }
+
+  function drawDesk(d) {
+    const x = d.x, y = d.y;
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.fillRect(x - 84, y + 6, 168, 10);
+    ctx.fillStyle = '#6b7680';
+    ctx.fillRect(x - 76, y - 10, 6, 22);
+    ctx.fillRect(x + 70, y - 10, 6, 22);
+    ctx.fillStyle = '#c9a77c';
+    ctx.fillRect(x - 82, y - 44, 164, 34);
+    ctx.fillStyle = '#a8865d';
+    ctx.fillRect(x - 82, y - 12, 164, 6);
+    // màn hình
+    ctx.fillStyle = '#2b2f36';
+    ctx.fillRect(x - 30, y - 92, 60, 40);
+    ctx.fillRect(x - 4, y - 52, 8, 10);
+    ctx.fillRect(x - 16, y - 44, 32, 4);
+    ctx.fillStyle = '#4f8fd0';
+    ctx.fillRect(x - 26, y - 88, 52, 32);
+    // bàn phím + cốc
+    ctx.fillStyle = '#e4e7ea';
+    ctx.fillRect(x - 24, y - 32, 48, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + 44, y - 40, 12, 14);
+  }
+
+  // Ghế làm việc có lưng tựa, chân xoay.
+  function drawChair(c) {
+    const x = c.x, y = c.y;
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + 14, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#3a3f45';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 2); ctx.lineTo(x, y + 12);
+    ctx.moveTo(x - 16, y + 14); ctx.lineTo(x + 16, y + 14);
+    ctx.stroke();
+    ctx.fillStyle = '#2f343a';
+    ctx.fillRect(x - 18, y - 44, 36, 36);
+    ctx.fillStyle = '#3d434a';
+    ctx.beginPath(); ctx.ellipse(x, y - 4, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawPlant(p) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8c5a3c';
+    ctx.fillRect(p.x - 14, p.y - 26, 28, 26);
+    ctx.fillStyle = '#3f7d46';
+    [[-12, -40], [0, -52], [12, -40], [-6, -60], [6, -60]].forEach(function (l) {
+      ctx.beginPath(); ctx.ellipse(p.x + l[0], p.y + l[1], 9, 16, l[0] * 0.04, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
   function drawPillar(p) {
     const top = 20;
     ctx.fillStyle = 'rgba(0,0,0,.3)';
@@ -944,6 +1225,14 @@
   const ROBE = '#8197ad';
   const ROBE_DARK = '#61768c';
   const SKIN = '#f0c9a2';
+  const SHIRT = '#e9eef3';
+  const SHIRT_LINE = '#9aa7b4';
+  const PANTS = '#34404e';
+  const SKIRT = '#3a4660';
+  // Đặt lại mỗi lần vẽ một nhân vật (drawMonk).
+  let officeLook = false;
+  let darkFace = false;
+  let female = false;
 
   function robeShape(topY, botY, topW, botW) {
     ctx.beginPath();
@@ -956,6 +1245,7 @@
   }
 
   function torso(topY, botY, days) {
+    if (officeLook) { shirt(topY, botY); return; }
     ctx.fillStyle = ROBE;
     robeShape(topY, botY, 26, 34);
     ctx.fill();
@@ -972,12 +1262,51 @@
     ctx.fillText(String(days), 0, (topY + botY) / 2 + 6);
   }
 
+  // Áo sơ mi + cà vạt (công sở).
+  function shirt(topY, botY) {
+    ctx.fillStyle = SHIRT;
+    robeShape(topY, botY, 26, 30);
+    ctx.fill();
+    ctx.strokeStyle = SHIRT_LINE;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (female) { // nơ ở cổ
+      const ny = topY + 5;
+      ctx.fillStyle = '#d6456b';
+      ctx.beginPath();
+      ctx.moveTo(0, ny); ctx.lineTo(-7, ny - 4); ctx.lineTo(-7, ny + 4); ctx.closePath();
+      ctx.moveTo(0, ny); ctx.lineTo(7, ny - 4); ctx.lineTo(7, ny + 4); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#a8304f';
+      ctx.beginPath(); ctx.arc(0, ny, 2, 0, Math.PI * 2); ctx.fill();
+      return;
+    }
+    ctx.fillStyle = '#b03a2e';
+    ctx.beginPath();
+    ctx.moveTo(-2.5, topY + 3); ctx.lineTo(2.5, topY + 3); ctx.lineTo(3.5, topY + 16);
+    ctx.lineTo(0, topY + 20); ctx.lineTo(-3.5, topY + 16);
+    ctx.closePath(); ctx.fill();
+  }
+
   function head(y) {
-    ctx.fillStyle = SKIN;
+    ctx.fillStyle = darkFace ? '#7a7a7a' : SKIN;
     ctx.beginPath(); ctx.arc(0, y, 13, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(150,100,70,.5)';
     ctx.lineWidth = 1;
     ctx.stroke();
+    if (officeLook) { // tóc mái: vòm tóc phủ đỉnh đầu, mép lượn sóng ngang trán (nữ dài hơn nam)
+      const ey = y - (female ? 3 : 6);
+      const a0 = Math.PI * (female ? 0.92 : 0.97);
+      ctx.fillStyle = '#2b2018';
+      ctx.beginPath();
+      ctx.arc(0, y, 13.6, a0, Math.PI * 3 - a0);
+      ctx.quadraticCurveTo(9, ey + 4, 6, ey);
+      ctx.quadraticCurveTo(3, ey + 4, 0, ey);
+      ctx.quadraticCurveTo(-3, ey + 4, -6, ey);
+      ctx.quadraticCurveTo(-9, ey + 4, Math.cos(a0) * 13.6, y + Math.sin(a0) * 13.6);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   // Trả về độ cao đỉnh đầu (để đặt tên/bong bóng chat).
@@ -992,9 +1321,12 @@
       ctx.beginPath(); ctx.ellipse(0, 0, 24, 9, 0, 0, Math.PI * 2); ctx.stroke();
     }
     let topOfHead;
+    officeLook = scene === 'office';
+    female = officeLook && p.gender === 'f'; // ở chùa ai cũng như nhau
+    darkFace = (blackFaces.get(p.id) || 0) > Date.now();
 
     if (p.pose === 'sit') {
-      ctx.fillStyle = ROBE_DARK;
+      ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : ROBE_DARK;
       ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
       torso(-46, -10, p.days);
       ctx.fillStyle = SKIN;
@@ -1050,14 +1382,35 @@
       const walking = p.pose === 'walk';
       const sw = walking ? Math.sin(t / 90) : 0;
       const bob = walking ? Math.abs(Math.sin(t / 90)) * 2 : 0;
-      ctx.fillStyle = '#4a3a2e';
+      if (officeLook && female) {
+        // chân + váy
+        ctx.fillStyle = SKIN;
+        ctx.fillRect(-7 + sw * 4, -16, 5, 13);
+        ctx.fillRect(2 - sw * 4, -16, 5, 13);
+        ctx.fillStyle = SKIRT;
+        ctx.beginPath();
+        ctx.moveTo(-12, -26 - bob); ctx.lineTo(12, -26 - bob);
+        ctx.lineTo(17, -12 - bob); ctx.lineTo(-17, -12 - bob);
+        ctx.closePath(); ctx.fill();
+      } else if (officeLook) {
+        // quần dài
+        ctx.fillStyle = PANTS;
+        ctx.fillRect(-10 + sw * 4, -26 - bob, 9, 23 + bob);
+        ctx.fillRect(1 - sw * 4, -26 - bob, 9, 23 + bob);
+      }
+      ctx.fillStyle = officeLook ? '#1d1d1f' : '#4a3a2e';
       ctx.beginPath(); ctx.ellipse(-6 + sw * 5, -3, 6, 3.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.ellipse(6 - sw * 5, -3, 6, 3.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.save();
       ctx.translate(0, -bob);
-      torso(-50, -5, p.days);
+      torso(-50, officeLook ? -22 : -5, p.days);
       ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(0, -34, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      if (officeLook) { // tay buông hai bên
+        ctx.beginPath(); ctx.ellipse(-15, -26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(15, -26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+      } else { // tay chắp
+        ctx.beginPath(); ctx.ellipse(0, -34, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+      }
       head(-62);
       ctx.restore();
       topOfHead = -75 - bob;
@@ -1175,14 +1528,21 @@
     const s = dpr * scale;
     ctx.setTransform(s, 0, 0, s, -camX * s, -camY * s);
 
-    drawWall(now);
-    drawFloor();
-    drawAltar(now);
-
     // sắp xếp theo chiều sâu (y)
     const items = [];
-    PILLARS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPillar(p); } }); });
-    items.push({ y: URN.y, draw: function () { drawUrn(now); } });
+    if (scene === 'office') {
+      drawOfficeWall();
+      drawOfficeFloor();
+      DESKS.forEach(function (d) { items.push({ y: d.y, draw: function () { drawDesk(d); } }); });
+      CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
+      PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
+    } else {
+      drawWall(now);
+      drawFloor();
+      drawAltar(now);
+      PILLARS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPillar(p); } }); });
+      items.push({ y: URN.y, draw: function () { drawUrn(now); } });
+    }
     const actors = [];
     if (started) actors.push({ p: me, x: me.x, y: me.y, isMe: true });
     others.forEach(function (o) { actors.push({ p: o, x: o.rx, y: o.ry, isMe: false }); });
@@ -1194,7 +1554,7 @@
 
     // tên + bong bóng chat luôn nằm trên cùng
     actors.forEach(function (a) {
-      const lotus = a.isMe ? Date.now() < (me.lotusUntil || 0) : !!a.p.lotus;
+      const lotus = scene === 'temple' && (a.isMe ? Date.now() < (me.lotusUntil || 0) : !!a.p.lotus);
       let top = a.top;
       if (lotus) { drawLotus(a.x, top - 9, now); top -= 20; }
       drawLabel(a.p.name, a.x, top - 4);

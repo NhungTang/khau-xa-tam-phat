@@ -12,7 +12,7 @@
 
   <!-- Thanh trên -->
   <header id="topbar" class="hidden">
-    <div class="brand">卍 Khẩu Xà Tâm Phật</div>
+    <div class="brand" id="brand">卍 Khẩu Xà Tâm Phật</div>
     <div class="top-actions">
       <div class="top-row">
       <span id="online" class="pill" title="Số người cùng mạng đang trong chùa">
@@ -33,8 +33,10 @@
         </svg>
       </button>
       </div>
-      <button id="btn-sutra" class="pill">📜 Chép kinh <span id="sutra-badge"></span></button>
-      <button id="btn-eat" class="pill">🍚 Thọ trai</button>
+      <button id="btn-sutra" class="pill temple-only">📜 Chép kinh <span id="sutra-badge"></span></button>
+      <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
+      <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
+      <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
     </div>
   </header>
 
@@ -43,8 +45,15 @@
     <div class="poses">
       <button data-pose="stand">Đứng</button>
       <button data-pose="sit">Ngồi</button>
-      <button data-pose="kneel">Quỳ</button>
-      <button data-pose="bow">Lạy</button>
+      <button data-pose="kneel" class="temple-only">Quỳ</button>
+      <button data-pose="bow" class="temple-only">Lạy</button>
+      <button id="btn-badmouth" class="office-only">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/>
+          <path d="M8 12.5l2.2-2.3 2.3 2.6 2.2-3"/>
+        </svg>
+        Nói xấu đồng nghiệp
+      </button>
     </div>
     <form id="chat-form" autocomplete="off">
       <input id="chat-input" maxlength="120" placeholder="Nói lời hay ý đẹp… (Enter để gửi)">
@@ -115,6 +124,46 @@
       </div>
       <p id="quiz-answer"></p>
       <button id="quiz-close" class="primary hidden">Nam mô A Di Đà Phật 🙏</button>
+    </div>
+  </div>
+
+  <!-- Đi làm: chọn tên ở văn phòng -->
+  <div id="office" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="office-close" aria-label="Đóng">✕</button>
+      <h2>Đi làm</h2>
+      <p class="sub">Ở văn phòng bạn dùng tên khác cũng được</p>
+      <form id="office-form" autocomplete="off">
+        <label for="office-name-input">Tên ở văn phòng</label>
+        <input id="office-name-input" maxlength="24" placeholder="Nhân viên">
+        <div class="gender" role="radiogroup" aria-label="Giới tính">
+          <label><input type="radio" name="gender" value="m"> Nam</label>
+          <label><input type="radio" name="gender" value="f"> Nữ</label>
+        </div>
+        <button type="submit" class="primary">Vào văn phòng</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Nói xấu đồng nghiệp: chọn người -->
+  <div id="badmouth" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="badmouth-close" aria-label="Đóng">✕</button>
+      <h2>Nói xấu ai?</h2>
+      <p class="sub">Chọn một đồng nghiệp đang ở văn phòng</p>
+      <div id="badmouth-list" class="food-list"></div>
+    </div>
+  </div>
+
+  <!-- Khuyên đi chùa sám hối (chỉ mình user thấy) -->
+  <div id="repent" class="overlay hidden">
+    <div class="card">
+      <h2>Tâm chưa an</h2>
+      <p class="quiz-question">Bạn nên đi chùa sám hối 🙏</p>
+      <div class="quiz-choices">
+        <button id="repent-yes" class="primary">Đồng ý</button>
+        <button id="repent-no">Để sau</button>
+      </div>
     </div>
   </div>
 

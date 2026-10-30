@@ -1,4 +1,4 @@
-// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime theo "mạng" (cùng IP public / cùng LAN).
+// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime theo "mạng" (cùng IP public / cùng LAN), mỗi cảnh một phòng.
 // Không phụ thuộc thư viện ngoài: Server-Sent Events cho chiều xuống, POST JSON cho chiều lên.
 'use strict';
 
@@ -42,8 +42,18 @@ function clientIp(req) {
   return ip;
 }
 
-// Mọi IP nội bộ (LAN / localhost) gom chung một phòng, IP public thì mỗi IP một phòng.
-function roomKeyFor(req) {
+// Chỉ có hai cảnh: chùa (mặc định) và công sở.
+function cleanScene(s) {
+  return s === 'office' ? 'office' : 'temple';
+}
+
+// Mọi IP nội bộ (LAN / localhost) gom chung một phòng, IP public thì mỗi IP một phòng;
+// mỗi cảnh (chùa / công sở) là một phòng riêng.
+function roomKeyFor(req, scene) {
+  return networkKey(req) + '|' + cleanScene(scene);
+}
+
+function networkKey(req) {
   const ip = clientIp(req);
   const isPrivate =
     ip === '::1' || ip === '127.0.0.1' ||
@@ -108,7 +118,7 @@ function json(res, code, obj) {
 function handleEvents(req, res, url) {
   const id = cleanId(url.searchParams.get('id'));
   if (!id) return json(res, 400, { error: 'bad id' });
-  const key = roomKeyFor(req);
+  const key = roomKeyFor(req, url.searchParams.get('scene'));
   const room = getRoom(key);
   const old = room.clients.get(id);
   if (old) old.end();
@@ -134,7 +144,7 @@ function handleState(req, res) {
   readJson(req, function (b) {
     const id = b && cleanId(b.id);
     if (!id) return json(res, 400, { error: 'bad body' });
-    const room = getRoom(roomKeyFor(req));
+    const room = getRoom(roomKeyFor(req, b.scene));
     // Chỉ nhận trạng thái từ người đang mở kết nối SSE trong phòng.
     if (!room.clients.has(id)) return json(res, 409, { error: 'not connected' });
     const prev = room.players.get(id) || {};
@@ -146,10 +156,12 @@ function handleState(req, res) {
       dir: b.dir === -1 ? -1 : 1,
       pose: POSES.indexOf(b.pose) >= 0 ? b.pose : 'stand',
       days: Math.floor(clampNum(b.days, 0, 100000, 0)),
+      gender: b.gender === 'f' ? 'f' : 'm',
       food: typeof b.food === 'string' && /^[a-z]{1,12}$/.test(b.food) ? b.food : undefined,
       lotus: b.lotus === true,
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
+      lastBadmouth: prev.lastBadmouth || 0,
     });
     json(res, 200, { ok: true });
   });
@@ -160,14 +172,33 @@ function handleChat(req, res) {
     const id = b && cleanId(b.id);
     const text = b && cleanText(b.text, 120);
     if (!id || !text) return json(res, 400, { error: 'bad body' });
-    const room = getRoom(roomKeyFor(req));
+    const scene = cleanScene(b.scene);
+    const room = getRoom(roomKeyFor(req, scene));
     const p = room.players.get(id);
     const now = Date.now();
     if (!p) return json(res, 409, { error: 'not connected' });
     if (now - p.lastChat < 800) return json(res, 429, { error: 'slow down' });
     p.lastChat = now;
-    if (hasProfanity(text)) return json(res, 422, { error: 'profanity' });
+    // Ở công sở được nói bậy; ở chùa thì chặn.
+    if (scene === 'temple' && hasProfanity(text)) return json(res, 422, { error: 'profanity' });
     broadcast(room, 'chat', { id: id, text: text });
+    json(res, 200, { ok: true });
+  });
+}
+
+// Nói xấu đồng nghiệp (chỉ ở công sở): mọi người trong phòng thấy mặt người bị nói xấu hoá đen.
+function handleBadmouth(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const target = b && cleanId(b.target);
+    if (!id || !target || id === target) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const p = room.players.get(id);
+    const now = Date.now();
+    if (!p || !room.players.has(target)) return json(res, 409, { error: 'not connected' });
+    if (now - p.lastBadmouth < 2000) return json(res, 429, { error: 'slow down' });
+    p.lastBadmouth = now;
+    broadcast(room, 'badmouth', { from: id, target: target });
     json(res, 200, { ok: true });
   });
 }
@@ -232,6 +263,7 @@ function route(req, res) {
   if (url.pathname === '/api/events' && req.method === 'GET') return handleEvents(req, res, url);
   if (url.pathname === '/api/state' && req.method === 'POST') return handleState(req, res);
   if (url.pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res);
+  if (url.pathname === '/api/badmouth' && req.method === 'POST') return handleBadmouth(req, res);
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res, url);
   res.writeHead(405);
   res.end();
@@ -247,7 +279,7 @@ setInterval(function () {
     if (room.clients.size === 0 && room.players.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
-      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, food: p.food, lotus: p.lotus });
+      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus });
     });
     const msg = 'event: snapshot\ndata: ' + JSON.stringify(list) + '\n\n';
     if (msg === room.lastSnapshot && now - room.lastSnapshotAt < 2000) return;

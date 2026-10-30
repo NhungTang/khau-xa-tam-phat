@@ -15,6 +15,8 @@
     <div class="brand" id="brand">卍 Khẩu Xà Tâm Phật</div>
     <div class="top-actions">
       <div class="top-row">
+      <span id="salary" class="pill stat" title="Lương — kiếm ở văn phòng, dùng để dâng lễ ở chùa">💰 <b id="salary-val">0</b>k</span>
+      <span id="stress" class="pill stat" title="Stress">😣 <span class="stress-bar"><i id="stress-fill"></i></span></span>
       <span id="online" class="pill" title="Số người cùng mạng đang trong chùa">
         <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -33,13 +35,16 @@
         </svg>
       </button>
       </div>
-      <button id="btn-sutra" class="pill temple-only">📜 Chép kinh <span id="sutra-badge"></span></button>
-      <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
-      <button id="btn-shop" class="pill temple-only">🎁 Đổi quà <span id="points" class="count">0</span></button>
-      <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
-      <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
-      <button id="btn-assign" class="pill office-only">📋 Giao task</button>
-      <button id="btn-mytasks" class="pill office-only">🗂️ Task của tôi <span id="task-count" class="count">0</span></button>
+      <div class="top-buttons">
+        <button id="btn-sutra" class="pill temple-only">📜 Chép kinh <span id="sutra-badge"></span></button>
+        <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
+        <button id="btn-offer" class="pill temple-only">🙏 Dâng lễ</button>
+        <button id="btn-shop" class="pill temple-only">🎁 Đổi quà <span id="points" class="count">0</span></button>
+        <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
+        <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
+        <button id="btn-assign" class="pill office-only">📋 Giao task</button>
+        <button id="btn-mytasks" class="pill office-only">🗂️ Task của tôi <span id="task-count" class="count">0</span></button>
+      </div>
     </div>
   </header>
 
@@ -56,6 +61,7 @@
         Tát
       </button>
       <button id="btn-sleep" class="office-only">Ngủ</button>
+      <button id="btn-coffee" class="office-only">☕ Cà phê</button>
       <button data-pose="kneel" class="temple-only">Quỳ</button>
       <button data-pose="bow" class="temple-only">Lạy</button>
       <button id="btn-badmouth" class="office-only">
@@ -155,6 +161,16 @@
         </div>
         <button type="submit" class="primary">Vào văn phòng</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Dâng lễ vật bằng lương -->
+  <div id="offer" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="offer-close" aria-label="Đóng">✕</button>
+      <h2>Dâng lễ</h2>
+      <p class="sub">Lương hiện có: <b id="offer-salary">0</b>k · lễ vật hiện trên bàn thờ 30 giây, dâng lễ giảm stress</p>
+      <div id="offer-items" class="shop-grid"></div>
     </div>
   </div>
 

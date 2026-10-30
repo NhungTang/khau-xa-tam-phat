@@ -77,17 +77,41 @@
   const DEFAULT_OFFICE_NAME = 'Nhân viên';
   const BADMOUTH_MS = 10000;     // mặt người bị nói xấu đen trong 10 giây
   const REPENT_DELAY_MS = 10000;
-  const SLAP_RANGE = 90;         // phải đứng gần mới tát được // 10 giây sau khi nói xấu / nói bậy → nhắc đi chùa sám hối
+  const SLAP_RANGE = 90;         // phải đứng gần mới tát được
+  const AISLE_Y = 700;           // lối đi giữa hai dãy bàn — đường sếp đi tuần
+  const CAUGHT_MS = 3000;        // chữ "BỊ BẮT!" hiện 3 giây
+  // Lễ vật mua bằng lương (đơn vị: nghìn đồng), dâng lên bàn thờ ở chùa.
+  const OFFERINGS = [
+    { id: 'nen', emoji: '🕯️', name: 'Nến', price: 2 },
+    { id: 'tra', emoji: '🍵', name: 'Trà', price: 3 },
+    { id: 'hoa', emoji: '🌺', name: 'Hoa', price: 5 },
+    { id: 'den', emoji: '🪔', name: 'Đèn dầu', price: 6 },
+    { id: 'qua', emoji: '🍊', name: 'Mâm quả', price: 8 },
+  ];
+  const OFFERING_SLOTS = [700, 664, 736, 628, 772, 592, 808, 556, 844, 520, 880, 484]; // 10 giây sau khi nói xấu / nói bậy → nhắc đi chùa sám hối
   const DESKS = [];
   [580, 820].forEach(function (y) {
-    [300, 560, 840, 1100].forEach(function (x) { DESKS.push({ x: x, y: y }); });
+    [220, 470, 720].forEach(function (x) { DESKS.push({ x: x, y: y }); });
   });
   const CHAIRS = DESKS.map(function (d) { return { x: d.x, y: d.y + 48 }; });
-  const PLANTS = [{ x: 70, y: 490 }, { x: 1330, y: 490 }];
+  const PLANTS = [{ x: 70, y: 490 }, { x: 850, y: 960 }];
+  // Pantry (phải trên) và phòng họp (phải dưới), ngăn với khu làm việc ở x = 900.
+  const ZONE_X = 900;
+  const PANTRY = { x0: ZONE_X, y1: 650 };
+  const MEET = { x0: ZONE_X, y0: 760 };
+  const ROUND_TABLE = { x: 1150, y: 575 };
+  const MEET_TABLE = { x: 1150, y: 880 };
+  const MEET_CHAIRS = [];
+  [1050, 1120, 1190, 1260].forEach(function (x) { MEET_CHAIRS.push({ x: x, y: 822 }, { x: x, y: 955 }); });
+  const ALL_CHAIRS = CHAIRS.concat(MEET_CHAIRS); // ngồi các ghế này = đang làm việc
   const OFFICE_OBSTACLES = PLANTS.map(function (p) { return { x: p.x, y: p.y - 6, r: 22 }; });
   DESKS.forEach(function (d) {
     OFFICE_OBSTACLES.push({ x: d.x - 50, y: d.y - 20, r: 34 }, { x: d.x + 50, y: d.y - 20, r: 34 });
   });
+  for (let x = 980; x <= 1300; x += 40) OFFICE_OBSTACLES.push({ x: x, y: 470, r: 24 }); // quầy pantry
+  OFFICE_OBSTACLES.push({ x: ROUND_TABLE.x, y: ROUND_TABLE.y - 6, r: 42 });
+  [1030, 1090, 1150, 1210, 1270].forEach(function (x) { OFFICE_OBSTACLES.push({ x: x, y: MEET_TABLE.y, r: 42 }); });
+  const DRINKS = [{ id: 'cafe', emoji: '☕', name: 'Cà phê' }];
 
   // ---------- Lưu trữ local ----------
   const store = {
@@ -101,6 +125,8 @@
     copies: 'kxtp_copies',
     inv: 'kxtp_inv',
     worn: 'kxtp_worn',
+    stress: 'kxtp_stress',
+    salary: 'kxtp_salary',
     draft: 'kxtp_draft',
     music: 'kxtp_music',
     officeName: 'kxtp_office_name',
@@ -140,6 +166,9 @@
     gender: store.get(K.gender) === 'f' ? 'f' : 'm',
     days: getPoints(),
     wear: Object.values(worn),
+    stress: Math.min(100, Math.max(0, parseInt(store.get(K.stress), 10) || 0)),
+    salary: Math.max(0, parseInt(store.get(K.salary), 10) || 0),
+    caughtUntil: 0,
     target: null,
   };
   const others = new Map();
@@ -148,6 +177,9 @@
   const blackFaces = new Map(); // id → thời điểm hết mặt đen
   const slaps = new Map();      // id → thời điểm bị tát
   let tasks = [];               // task trong văn phòng (server gửi xuống)
+  let boss = null;              // { start, dur } — sếp đang đi tuần
+  let bossCaughtMe = false;     // mỗi lượt đi tuần chỉ bắt một lần
+  let offerings = [];           // lễ vật trên bàn thờ (server gửi xuống)
   let started = false;
   let scene = 'temple'; // 'temple' | 'office'
   let templeName = DEFAULT_NAME;
@@ -178,6 +210,7 @@
     started = true;
     updateSutraBadge();
     updatePointsUI();
+    updateStatsUI();
     setPose('stand');
     if (store.get(K.music) !== 'off') { synth.unlock(); startMusic(); }
     updateMusicBtn();
@@ -232,7 +265,7 @@
   function setPose(pose) {
     if (pose === 'sit' && scene === 'office') {
       let best = null, bestD = 70;
-      CHAIRS.forEach(function (ch) {
+      ALL_CHAIRS.forEach(function (ch) {
         const d = Math.hypot(me.x - ch.x, me.y - ch.y);
         if (d < bestD) { best = ch; bestD = d; }
       });
@@ -341,9 +374,17 @@
       if (b.target === me.id) {
         const o = others.get(b.from);
         toast((o ? o.name : 'Một đồng nghiệp') + ' vừa nói xấu bạn!');
+        addStress(10);
       }
     });
     es.addEventListener('tasks', function (ev) { onTasks(JSON.parse(ev.data)); });
+    es.addEventListener('boss', function (ev) {
+      const b = JSON.parse(ev.data);
+      boss = { start: Date.now() - b.elapsed, dur: b.dur };
+      bossCaughtMe = false;
+      if (b.elapsed < 1000) toast('⚠️ Sếp đang đi tuần! Mau về bàn ngồi làm việc.', 5000);
+    });
+    es.addEventListener('offerings', function (ev) { offerings = JSON.parse(ev.data); });
     es.addEventListener('gift', function (ev) {
       const g = JSON.parse(ev.data);
       const it = ITEM_BY_ID.get(g.item);
@@ -359,6 +400,7 @@
       if (s.target === me.id) {
         const o = others.get(s.from);
         toast((o ? o.name : 'Một đồng nghiệp') + ' vừa tát bạn!');
+        addStress(15);
       }
     });
     es.addEventListener('leave', function (ev) {
@@ -376,6 +418,7 @@
       id: me.id, name: me.name, scene: scene,
       x: Math.round(me.x), y: Math.round(me.y),
       dir: me.dir, pose: me.pose, days: me.days, gender: me.gender, wear: me.wear,
+      stress: me.stress, caught: Date.now() < me.caughtUntil,
       food: me.pose === 'eat' ? me.food : undefined,
       lotus: Date.now() < (me.lotusUntil || 0),
     };
@@ -399,6 +442,8 @@
     bubbles.clear();
     blackFaces.clear();
     slaps.clear();
+    boss = null;
+    offerings = [];
     tasks = [];
     updateTaskBadge();
     keys.clear();
@@ -461,6 +506,16 @@
     pickColleague('Nói xấu ai?', 'Chọn một đồng nghiệp đang ở văn phòng', Array.from(others.keys()), badmouth);
   });
 
+  // Pha cà phê: chỉ trong pantry; ngồi nhâm nhi 10 giây, đỡ stress một chút.
+  $('btn-coffee').addEventListener('click', function () {
+    if (!(me.x > PANTRY.x0 && me.y < PANTRY.y1)) { toast('Vào pantry mới pha được cà phê.'); return; }
+    me.food = 'cafe';
+    me.eatUntil = Date.now() + EAT_MS;
+    setPose('eat');
+    addStress(-3);
+    toast('☕ Nhâm nhi cà phê cho tỉnh táo…');
+  });
+
   // Đi ngủ: phải đến gần bàn làm việc → nằm dưới gầm bàn.
   $('btn-sleep').addEventListener('click', function () {
     let best = null, bestD = 110;
@@ -485,6 +540,7 @@
       slaps.set(id, Date.now());
       post('/api/slap', { id: me.id, target: id });
       toast('Bạn vừa tát ' + name + '!');
+      addStress(5);
       scheduleRepent();
     });
   });
@@ -493,6 +549,7 @@
     blackFaces.set(id, Date.now() + BADMOUTH_MS);
     post('/api/badmouth', { id: me.id, target: id });
     toast('Bạn vừa nói xấu ' + (name || DEFAULT_OFFICE_NAME) + '…');
+    addStress(5);
     scheduleRepent();
   }
 
@@ -507,10 +564,16 @@
       const old = prev.get(t.id);
       if (t.to !== me.id) return;
       if (!old) toast(t.fromName + ' vừa giao task cho bạn: ' + t.text);
-      else if (old.status === 'review' && t.status === 'todo') toast(t.fromName + ' bắt bạn làm lại: ' + t.text, 6000);
+      else if (old.status === 'review' && t.status === 'todo') {
+        toast(t.fromName + ' bắt bạn làm lại: ' + t.text, 6000);
+        addStress(15);
+      }
     });
     prev.forEach(function (t) {
-      if (t.to === me.id && t.status === 'review' && !next.has(t.id)) toast(t.fromName + ' đã duyệt xong task: ' + t.text);
+      if (t.to === me.id && t.status === 'review' && !next.has(t.id)) {
+        toast(t.fromName + ' đã duyệt xong task: ' + t.text + ' — thưởng 10k 💰');
+        addSalary(10);
+      }
     });
     tasks = list;
     updateTaskBadge();
@@ -632,6 +695,107 @@
     switchScene('temple');
   });
   $('repent-no').addEventListener('click', function () { $('repent').classList.add('hidden'); });
+
+  // ---------- Stress & lương ----------
+  // Stress: đi làm tăng dần, bị nói xấu/tát/bắt làm lại/bị sếp bắt tăng mạnh; chỉ ở chùa mới giảm.
+  let stressWarned = false;
+  function addStress(n) {
+    me.stress = Math.min(100, Math.max(0, me.stress + n));
+    store.set(K.stress, String(me.stress));
+    updateStatsUI();
+    if (me.stress >= 100 && !stressWarned && scene === 'office') {
+      stressWarned = true;
+      toast('😵 Stress quá tải! Đi chùa cho tâm an thôi.', 6000);
+      showRepent();
+    }
+    if (me.stress < 80) stressWarned = false;
+  }
+  function addSalary(n) {
+    me.salary = Math.max(0, me.salary + n);
+    store.set(K.salary, String(me.salary));
+    updateStatsUI();
+  }
+  function updateStatsUI() {
+    $('salary-val').textContent = me.salary;
+    $('stress-fill').style.width = me.stress + '%';
+    $('stress-fill').style.background = me.stress >= 70 ? '#e74c3c' : me.stress >= 40 ? '#f39c12' : '#2ecc71';
+    $('stress').title = 'Stress: ' + me.stress + '/100 — chỉ đi chùa mới giảm';
+    if (!$('offer').classList.contains('hidden')) renderOffer();
+  }
+  // Đang ngồi đúng ghế làm việc?
+  function atDesk() {
+    return me.pose === 'sit' && ALL_CHAIRS.some(function (c) {
+      return Math.abs(me.x - c.x) < 4 && Math.abs(me.y - (c.y + 2)) < 4;
+    });
+  }
+  let officeTicks = 0;
+  setInterval(function () {
+    if (!started) return;
+    if (scene === 'office') {
+      if (++officeTicks % 8 === 0) addStress(1);       // áp lực công việc: +1 mỗi 16 giây
+      if (officeTicks % 5 === 0 && atDesk()) addSalary(1); // ngồi bàn làm việc: +1k mỗi 10 giây
+    } else if (me.stress > 0) {
+      addStress(me.pose === 'kneel' || me.pose === 'bow' ? -2 : -1); // ở chùa: giảm dần, quỳ/lạy giảm nhanh hơn
+    }
+  }, 2000);
+
+  // ---------- Sếp đi tuần ----------
+  function bossPos(now) {
+    if (!boss) return null;
+    const p = (now - boss.start) / boss.dur;
+    if (p < 0 || p > 1) return null;
+    return { x: -40 + (W + 80) * p, y: AISLE_Y };
+  }
+  function checkBoss(now) {
+    const b = bossPos(now);
+    if (!b || bossCaughtMe || scene !== 'office') return;
+    if (Math.abs(b.x - me.x) < 150 && !atDesk()) {
+      bossCaughtMe = true;
+      me.caughtUntil = Date.now() + CAUGHT_MS;
+      addStress(20);
+      addSalary(-5);
+      toast(me.pose === 'sleep' ? '😱 Sếp bắt quả tang bạn ngủ gật! −5k lương.' : '😱 Sếp bắt gặp bạn không ngồi làm việc! −5k lương.', 6000);
+    }
+  }
+
+  // ---------- Dâng lễ vật (chùa) ----------
+  function renderOffer() {
+    $('offer-salary').textContent = me.salary;
+    const grid = $('offer-items');
+    grid.textContent = '';
+    OFFERINGS.forEach(function (it) {
+      const b = document.createElement('button');
+      b.className = 'shop-item';
+      b.disabled = me.salary < it.price;
+      [['emoji', it.emoji], ['', it.name], ['price', it.price + 'k']].forEach(function (x) {
+        const s = document.createElement('span');
+        s.className = x[0];
+        s.textContent = x[1];
+        b.appendChild(s);
+      });
+      b.addEventListener('click', function () {
+        if (me.salary < it.price) return;
+        b.disabled = true;
+        post('/api/offer', { id: me.id, item: it.id }).then(function (r) {
+          if (r && r.ok) {
+            addSalary(-it.price);
+            addStress(-10);
+            toast('🙏 Đã dâng ' + it.emoji + ' ' + it.name + ' lên bàn thờ.');
+          } else {
+            toast('Chưa dâng được, thử lại sau giây lát.');
+            renderOffer();
+          }
+        });
+      });
+      grid.appendChild(b);
+    });
+  }
+  $('btn-offer').addEventListener('click', function () {
+    renderOffer();
+    $('offer').classList.remove('hidden');
+    keys.clear();
+  });
+  $('offer-close').addEventListener('click', function () { $('offer').classList.add('hidden'); });
 
   // ---------- Nhạc nền ----------
   let musicOn = false;
@@ -1031,6 +1195,7 @@
       store.del(K.draft);
       const gain = sutraPoints(currentSutra);
       setPoints(getPoints() + gain);
+      addStress(-20);
       me.lotusUntil = Date.now() + LOTUS_MS;
       quizPending = true;
       sutraDone = true;
@@ -1371,6 +1536,128 @@
       ctx.fillStyle = '#3d6233';
       ctx.fillRect(x - 1, 296, 2, 10);
     });
+
+    // bàn lễ phủ khăn đỏ trước bệ thờ + lễ vật mọi người dâng (mới nhất ở giữa)
+    drawOfferingTable();
+    offerings.slice().reverse().forEach(function (o, i) {
+      if (i < OFFERING_SLOTS.length) drawOffering(o.item, OFFERING_SLOTS[i], OFFERING_TOP, t, i);
+    });
+  }
+
+  const OFFERING_TOP = 410; // mặt bàn lễ
+  function drawOfferingTable() {
+    const x0 = 466, x1 = 934, y = OFFERING_TOP;
+    ctx.fillStyle = '#5a2c12';
+    ctx.fillRect(x0 + 6, y, 6, 42);
+    ctx.fillRect(x1 - 12, y, 6, 42);
+    ctx.fillStyle = '#9c2a20';                  // khăn đỏ
+    ctx.fillRect(x0, y, x1 - x0, 24);
+    ctx.fillStyle = '#d9a441';                  // viền vàng
+    ctx.fillRect(x0, y, x1 - x0, 3);
+    ctx.fillRect(x0, y + 22, x1 - x0, 3);
+    ctx.fillStyle = '#e8b64c';                  // tua rua
+    for (let x = x0 + 6; x < x1; x += 12) {
+      ctx.beginPath(); ctx.moveTo(x - 3, y + 25); ctx.lineTo(x + 3, y + 25); ctx.lineTo(x, y + 31); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#e8b64c';                  // chữ Vạn giữa khăn
+    ctx.font = 'bold 13px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('卍', 700, y + 13);
+  }
+
+  function glow(x, y, r, a) {
+    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    g.addColorStop(0, 'rgba(255,214,120,' + a + ')');
+    g.addColorStop(1, 'rgba(255,214,120,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Vẽ một lễ vật đứng trên mặt bàn lễ, chân tại (x, y).
+  function drawOffering(id, x, y, t, i) {
+    const flick = Math.sin(t / 90 + i * 1.7);
+    if (id === 'nen') {
+      glow(x, y - 30, 16, 0.55);
+      ctx.fillStyle = '#d9a441';
+      ctx.fillRect(x - 6, y - 3, 12, 3);
+      ctx.fillStyle = '#f7efdc';
+      ctx.fillRect(x - 3.5, y - 24, 7, 21);
+      ctx.fillStyle = '#ffcf5c';
+      ctx.beginPath(); ctx.ellipse(x + flick * 0.6, y - 29, 2.6, 5 + flick * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff6d6';
+      ctx.beginPath(); ctx.ellipse(x + flick * 0.6, y - 28, 1.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (id === 'tra') {
+      ctx.fillStyle = '#f2ece2';                // đĩa
+      ctx.beginPath(); ctx.ellipse(x, y - 2, 12, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';                // chén
+      ctx.beginPath();
+      ctx.moveTo(x - 9, y - 15); ctx.lineTo(x + 9, y - 15);
+      ctx.quadraticCurveTo(x + 8, y - 3, x, y - 3);
+      ctx.quadraticCurveTo(x - 8, y - 3, x - 9, y - 15);
+      ctx.fill();
+      ctx.fillStyle = '#3b6fb6';
+      ctx.fillRect(x - 8, y - 12, 16, 2);
+      ctx.fillStyle = '#9b7a3a';                // nước trà
+      ctx.beginPath(); ctx.ellipse(x, y - 15, 8.5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(240,235,225,.45)'; // khói
+      ctx.lineWidth = 1.5;
+      for (let k = -1; k <= 1; k += 2) {
+        ctx.beginPath();
+        for (let s = 0; s <= 10; s++) {
+          const py = y - 18 - s * 2;
+          const px = x + k * 3 + Math.sin(t / 400 + s * 0.6 + k) * 2;
+          if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+    } else if (id === 'hoa') {
+      ctx.strokeStyle = '#4c8a3c';              // cành
+      ctx.lineWidth = 1.5;
+      [[-6, -40], [0, -46], [6, -40]].forEach(function (s) {
+        ctx.beginPath(); ctx.moveTo(x, y - 18); ctx.lineTo(x + s[0], y + s[1]); ctx.stroke();
+      });
+      [[-6, -40], [0, -46], [6, -40]].forEach(function (s) { // nụ sen
+        const bx = x + s[0], by = y + s[1];
+        ctx.fillStyle = '#e88a9a';
+        ctx.beginPath(); ctx.moveTo(bx, by - 8); ctx.quadraticCurveTo(bx + 5, by - 2, bx, by + 2); ctx.quadraticCurveTo(bx - 5, by - 2, bx, by - 8); ctx.fill();
+        ctx.fillStyle = '#d9677c';
+        ctx.beginPath(); ctx.moveTo(bx, by + 2); ctx.quadraticCurveTo(bx + 6, by, bx + 4, by - 4); ctx.quadraticCurveTo(bx + 2, by, bx, by + 2); ctx.fill();
+      });
+      ctx.fillStyle = '#f4f6f8';                // bình sứ
+      ctx.beginPath();
+      ctx.moveTo(x - 4, y - 20); ctx.lineTo(x + 4, y - 20);
+      ctx.quadraticCurveTo(x + 11, y - 10, x + 6, y); ctx.lineTo(x - 6, y);
+      ctx.quadraticCurveTo(x - 11, y - 10, x - 4, y - 20);
+      ctx.fill();
+      ctx.strokeStyle = '#3b6fb6';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x - 7, y - 10); ctx.quadraticCurveTo(x, y - 6, x + 7, y - 10); ctx.stroke();
+    } else if (id === 'den') {
+      glow(x, y - 20, 18, 0.6);
+      ctx.fillStyle = '#b8862e';                // chân đèn
+      ctx.fillRect(x - 2, y - 12, 4, 10);
+      ctx.beginPath(); ctx.ellipse(x, y - 2, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9a441';                // bầu đèn
+      ctx.beginPath(); ctx.ellipse(x, y - 13, 10, 5, 0, 0, Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x + 8, y - 13); ctx.lineTo(x + 13, y - 16); ctx.lineTo(x + 9, y - 12); ctx.fill();
+      ctx.fillStyle = '#ffb347';
+      ctx.beginPath(); ctx.ellipse(x + 12 + flick * 0.5, y - 20, 2.4, 4.5 + flick * 0.5, 0.2, 0, Math.PI * 2); ctx.fill();
+    } else if (id === 'qua') {
+      ctx.fillStyle = '#b8862e';                // chân mâm
+      ctx.fillRect(x - 5, y - 5, 10, 5);
+      ctx.fillStyle = '#d9a441';                // mâm
+      ctx.beginPath(); ctx.ellipse(x, y - 6, 15, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#f0d27a';              // nải chuối
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x - 4, y - 18, 10, Math.PI * 0.15, Math.PI * 0.8); ctx.stroke();
+      [[-8, -11], [0, -11], [8, -11], [-4, -18], [4, -18], [0, -25]].forEach(function (f, k) { // cam xếp tháp
+        ctx.fillStyle = k === 5 ? '#c0392b' : '#f39c12';
+        ctx.beginPath(); ctx.arc(x + f[0], y + f[1], 4.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.35)';
+        ctx.beginPath(); ctx.arc(x + f[0] - 1.3, y + f[1] - 1.3, 1.3, 0, Math.PI * 2); ctx.fill();
+      });
+    }
   }
 
   // ---------- Vẽ công sở ----------
@@ -1434,6 +1721,14 @@
     ctx.strokeStyle = '#2b2f36';
     hand(((d.getHours() % 12) + d.getMinutes() / 60) / 12 * Math.PI * 2, 12, 3);
     hand(d.getMinutes() / 60 * Math.PI * 2, 18, 2);
+    // biển pantry
+    ctx.fillStyle = '#2b2f36';
+    ctx.fillRect(1070, 300, 100, 30);
+    ctx.fillStyle = '#f2c230';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('☕ PANTRY', 1120, 315);
     // chân tường
     ctx.fillStyle = '#7d8a96';
     ctx.fillRect(0, FLOOR_TOP - 14, W, 14);
@@ -1452,6 +1747,107 @@
     ctx.lineWidth = 1;
     for (let y = FLOOR_TOP; y <= H; y += tile) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     for (let x = 0; x <= W; x += tile) { ctx.beginPath(); ctx.moveTo(x, FLOOR_TOP); ctx.lineTo(x, H); ctx.stroke(); }
+
+    // pantry: gạch trắng
+    for (let y = FLOOR_TOP; y < PANTRY.y1; y += 35) {
+      for (let x = PANTRY.x0; x < W; x += 35) {
+        ctx.fillStyle = ((x - PANTRY.x0) / 35 + (y - FLOOR_TOP) / 35) % 2 ? '#e9ecef' : '#dde2e6';
+        ctx.fillRect(x, y, 35, 35);
+      }
+    }
+    // phòng họp: thảm xanh
+    ctx.fillStyle = '#6d7f99';
+    ctx.fillRect(MEET.x0, MEET.y0, W - MEET.x0, H - MEET.y0);
+    ctx.strokeStyle = '#55657c';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(MEET.x0 + 10, MEET.y0 + 10, W - MEET.x0 - 20, H - MEET.y0 - 20);
+    // ranh giới các khu
+    ctx.strokeStyle = 'rgba(60,70,80,.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(ZONE_X, FLOOR_TOP); ctx.lineTo(ZONE_X, H);
+    ctx.stroke();
+  }
+
+  // Quầy pantry: máy cà phê, bình nước, lò vi sóng, tủ lạnh.
+  function drawPantryCounter() {
+    ctx.fillStyle = '#dfe5ea';
+    ctx.fillRect(1270, 360, 60, 132);                       // tủ lạnh
+    ctx.strokeStyle = '#aab4bd';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1270, 360, 60, 132);
+    ctx.beginPath(); ctx.moveTo(1270, 410); ctx.lineTo(1330, 410); ctx.stroke();
+    ctx.fillStyle = '#e6e9ec';
+    ctx.fillRect(960, 446, 310, 46);                         // thân quầy
+    ctx.fillStyle = '#cfd5db';
+    ctx.fillRect(956, 440, 318, 8);                          // mặt quầy
+    ctx.strokeStyle = '#b9c2ca';
+    ctx.lineWidth = 1.5;
+    for (let x = 1030; x < 1270; x += 70) { ctx.beginPath(); ctx.moveTo(x, 450); ctx.lineTo(x, 490); ctx.stroke(); }
+    ctx.fillStyle = '#2b2f36';
+    ctx.fillRect(980, 396, 44, 44);                          // máy pha cà phê
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath(); ctx.arc(1014, 406, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(994, 428, 12, 12);
+    ctx.fillStyle = '#9fd3f0';
+    ctx.fillRect(1076, 392, 28, 36);                         // bình nước
+    ctx.fillStyle = '#e8edf1';
+    ctx.fillRect(1072, 426, 36, 14);
+    ctx.fillStyle = '#3a3f45';
+    ctx.fillRect(1150, 410, 60, 30);                         // lò vi sóng
+    ctx.fillStyle = '#7fa6c4';
+    ctx.fillRect(1156, 415, 36, 20);
+  }
+
+  function drawRoundTable() {
+    const t = ROUND_TABLE;
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.ellipse(t.x, t.y + 4, 40, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7d8a96';
+    ctx.fillRect(t.x - 3, t.y - 26, 6, 28);
+    ctx.fillStyle = '#f2ece2';
+    ctx.beginPath(); ctx.ellipse(t.x, t.y - 28, 42, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#c9bfae';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    [-62, 62].forEach(function (dx) { // ghế đẩu
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.ellipse(t.x + dx, t.y - 10, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7d8a96';
+      ctx.fillRect(t.x + dx - 2, t.y - 6, 4, 10);
+    });
+  }
+
+  function drawMeetTable() {
+    const t = MEET_TABLE;
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(t.x, t.y + 14, 156, 44, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6b4530';
+    ctx.beginPath(); ctx.ellipse(t.x, t.y + 6, 152, 44, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a5a3c';
+    ctx.beginPath(); ctx.ellipse(t.x, t.y, 150, 40, 0, 0, Math.PI * 2); ctx.fill();
+    [-80, 0, 80].forEach(function (dx) { // laptop + giấy tờ
+      ctx.fillStyle = '#c9ced4';
+      ctx.fillRect(t.x + dx - 14, t.y - 10, 28, 16);
+      ctx.fillStyle = '#4f8fd0';
+      ctx.fillRect(t.x + dx - 11, t.y - 8, 22, 10);
+    });
+  }
+
+  function drawMeetSign() {
+    ctx.fillStyle = '#5d6b78';
+    ctx.fillRect(1346, 796, 4, 40);
+    ctx.fillStyle = '#fbfcfd';
+    ctx.fillRect(1296, 772, 100, 28);
+    ctx.strokeStyle = '#5d6b78';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1296, 772, 100, 28);
+    ctx.fillStyle = '#2b2f36';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PHÒNG HỌP', 1346, 786);
   }
 
   function drawDesk(d) {
@@ -1848,13 +2244,13 @@
       topOfHead = -71;
     } else if (p.pose === 'eat') {
       // ngồi, cứ ~2 giây đưa món lên miệng một lần
-      ctx.fillStyle = robeShade;
+      ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : robeShade;
       ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
       torso(-46, -10, p.days);
       const ph = ((t + (p.seed || 0) * 2000) % 2000) / 2000;
       const lift = ph < 0.25 ? ph / 0.25 : ph < 0.45 ? 1 : ph < 0.7 ? 1 - (ph - 0.45) / 0.25 : 0;
       const fy = -16 - lift * 24;
-      const food = FOODS.find(function (f) { return f.id === p.food; }) || FOODS[0];
+      const food = FOODS.concat(DRINKS).find(function (f) { return f.id === p.food; }) || FOODS[0];
       ctx.fillStyle = SKIN;
       ctx.beginPath(); ctx.ellipse(0, fy + 6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.font = '16px sans-serif';
@@ -2002,6 +2398,65 @@
     ctx.restore();
   }
 
+  // Khói bốc trên đầu khi stress cao.
+  function drawSmoke(x, y, t) {
+    for (let i = 0; i < 3; i++) {
+      const ph = ((t / 1200) + i / 3) % 1;
+      ctx.fillStyle = 'rgba(110,110,110,' + (0.55 * (1 - ph)) + ')';
+      ctx.beginPath(); ctx.arc(x + Math.sin(ph * 6 + i) * 5, y - ph * 22, 4 + ph * 5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawCaught(x, y) {
+    ctx.save();
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText('BỊ BẮT!', x, y);
+    ctx.fillStyle = '#c0392b';
+    ctx.fillText('BỊ BẮT!', x, y);
+    ctx.restore();
+  }
+
+  // Sếp: vest đen, cà vạt đỏ, kính đen, đi ngang lối giữa.
+  function drawBoss(x, y, t) {
+    const sw = Math.sin(t / 110);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1b1f27';
+    ctx.fillRect(-11 + sw * 4, -30, 10, 27);
+    ctx.fillRect(1 - sw * 4, -30, 10, 27);
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.ellipse(-6 + sw * 5, -3, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(6 - sw * 5, -3, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#232a36';
+    robeShape(-58, -26, 32, 36);
+    ctx.fill();
+    ctx.fillStyle = '#f4f6f8';
+    ctx.beginPath(); ctx.moveTo(-6, -58); ctx.lineTo(6, -58); ctx.lineTo(0, -44); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(-2, -55, 4, 14);
+    ctx.fillStyle = SKIN;
+    ctx.beginPath(); ctx.arc(0, -71, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-11, -75, 9, 5);
+    ctx.fillRect(2, -75, 9, 5);
+    ctx.fillRect(-2, -74, 4, 2);
+    ctx.restore();
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.strokeText('SẾP', x, y - 90);
+    ctx.fillStyle = '#c0392b';
+    ctx.fillText('SẾP', x, y - 90);
+  }
+
   function drawZzz(x, y, t) {
     ctx.save();
     ctx.font = 'bold 11px sans-serif';
@@ -2074,6 +2529,7 @@
     last = now;
     if (started) {
       update(dt);
+      checkBoss(Date.now());
       syncState(now);
     }
     updateCamera();
@@ -2092,6 +2548,13 @@
       DESKS.forEach(function (d) { items.push({ y: d.y, draw: function () { drawDesk(d); } }); });
       CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
       PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
+      items.push({ y: 492, draw: drawPantryCounter });
+      items.push({ y: ROUND_TABLE.y, draw: drawRoundTable });
+      items.push({ y: MEET_TABLE.y, draw: drawMeetTable });
+      items.push({ y: 836, draw: drawMeetSign });
+      MEET_CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
+      const bp = bossPos(Date.now());
+      if (bp) items.push({ y: bp.y, draw: function () { drawBoss(bp.x, bp.y, now); } });
     } else {
       drawWall(now);
       drawFloor();
@@ -2117,6 +2580,9 @@
       const slapAgo = Date.now() - (slaps.get(a.p.id) || 0);
       if (slapAgo < 1000) drawPow(a.x, top - 22, slapAgo);
       if (a.p.pose === 'sleep') drawZzz(a.x - 18, top - 6, now);
+      if (scene === 'office' && a.p.stress >= 70) drawSmoke(a.x, top - 2, now);
+      const caught = a.isMe ? Date.now() < me.caughtUntil : !!a.p.caught;
+      if (caught) { drawCaught(a.x, top - 30); }
       drawLabel(a.p.name, a.x, top - 4);
       const b = bubbles.get(a.p.id);
       if (b) drawBubble(b.text, a.x, top - 18, b.until);

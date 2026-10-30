@@ -42,6 +42,7 @@ button {
   color: var(--gold-soft);
   border-radius: 10px;
   padding: 10px 12px;
+  font-size: 14px;
 }
 button:hover { background: rgba(90, 53, 25, .95); }
 button.primary {
@@ -75,10 +76,29 @@ input, textarea {
   pointer-events: none;
 }
 #topbar > * { pointer-events: auto; }
-.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 36px; }
+.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 30px; }
 .top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .top-row { display: flex; align-items: center; gap: 10px; }
-#btn-sutra, #btn-eat, #btn-shop, #btn-work, #btn-temple, #btn-assign, #btn-mytasks { width: 100%; }
+/* Cột nút chỉ rộng bằng nút dài nhất của nó (không bị hàng lương/stress kéo rộng) */
+.top-buttons { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--gold-soft);
+  border: 1px solid rgba(232, 182, 76, .55);
+  background: rgba(59, 36, 20, .85);
+}
+.stress-bar {
+  display: inline-block;
+  width: 56px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+}
+.stress-bar i { display: block; height: 100%; width: 0; background: #2ecc71; transition: width .3s, background .3s; }
 .pill .count {
   display: inline-block;
   min-width: 20px;
@@ -103,8 +123,8 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   border: 1px solid rgba(232, 182, 76, .55);
   background: rgba(59, 36, 20, .85);
 }
-.pill { border-radius: 999px; padding: 10px 14px; }
-.pill.icon { padding: 8px 12px; display: inline-flex; align-items: center; }
+.pill { border-radius: 999px; padding: 6px 12px; }
+.pill.icon { padding: 6px 10px; display: inline-flex; align-items: center; }
 .ico {
   width: 18px;
   height: 18px;
@@ -133,7 +153,7 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
 }
 .poses { display: flex; gap: 10px; }
 #chat-form { display: flex; gap: 10px; flex: 1; min-width: 220px; }
-#chat-form input { padding: 10px 14px; }
+#chat-form input { padding: 8px 12px; }
 
 .overlay {
   position: fixed;
@@ -220,9 +240,11 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   max-width: calc(100% - 32px);
   padding: 10px 16px;
   border-radius: 10px;
-  background: var(--err);
-  color: #fff;
+  background: linear-gradient(#f5d98b, #e8b64c);
+  border: 1px solid #c48a2a;
+  color: var(--ink);
   font-size: 14px;
+  font-weight: 600;
   text-align: center;
   box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
   pointer-events: none;
@@ -232,7 +254,7 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   .brand { font-size: 14px; }
   #online { display: none; }
   .poses { width: 100%; }
-  .poses button { flex: 1; padding: 10px 4px; }
+  .poses button { flex: 1; padding: 8px 4px; }
   #chat-form { min-width: 0; width: 100%; }
 }
 #repent .quiz-choices .primary,

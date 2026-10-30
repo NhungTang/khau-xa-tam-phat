@@ -16,6 +16,11 @@ const MAX_BODY = 4096;
 const MAX_PER_ROOM = 60;
 const MAX_TASKS_PER_ROOM = 300;
 const TASK_TTL_MS = 24 * 60 * 60 * 1000; // task cũ hơn 1 ngày tự xoá
+const BOSS_WALK_MS = 20000;                // sếp đi ngang văn phòng trong 20 giây
+const BOSS_GAP_MS = [45000, 90000];        // nghỉ 45–90 giây giữa hai lần đi tuần
+const OFFERING_TTL_MS = 30 * 1000;         // lễ vật trên bàn thờ giữ 30 giây
+const MAX_OFFERINGS = 12;
+const OFFERING_IDS = ['nen', 'tra', 'hoa', 'den', 'qua'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -68,7 +73,7 @@ function networkKey(req) {
 function getRoom(key) {
   let room = rooms.get(key);
   if (!room) {
-    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1 };
+    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [] };
     rooms.set(key, room);
   }
   return room;
@@ -134,7 +139,12 @@ function handleEvents(req, res, url) {
   });
   res.write('retry: 2000\n\n');
   room.clients.set(id, res);
-  if (cleanScene(url.searchParams.get('scene')) === 'office') send(res, 'tasks', taskList(room));
+  if (cleanScene(url.searchParams.get('scene')) === 'office') {
+    send(res, 'tasks', taskList(room));
+    if (bossActive(room, Date.now())) send(res, 'boss', { elapsed: Date.now() - room.boss.start, dur: room.boss.dur });
+  } else {
+    send(res, 'offerings', room.offerings);
+  }
   req.on('close', function () {
     if (room.clients.get(id) === res) {
       room.clients.delete(id);
@@ -163,6 +173,8 @@ function handleState(req, res) {
       gender: b.gender === 'f' ? 'f' : 'm',
       food: typeof b.food === 'string' && /^[a-z]{1,12}$/.test(b.food) ? b.food : undefined,
       lotus: b.lotus === true,
+      stress: Math.round(clampNum(b.stress, 0, 100, 0)),
+      caught: b.caught === true,
       wear: Array.isArray(b.wear) ? b.wear.filter(function (s) { return typeof s === 'string' && ITEM_ID.test(s); }).slice(0, 8) : [],
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
@@ -170,6 +182,7 @@ function handleState(req, res) {
       lastTask: prev.lastTask || 0,
       lastSlap: prev.lastSlap || 0,
       lastGift: prev.lastGift || 0,
+      lastOffer: prev.lastOffer || 0,
     });
     json(res, 200, { ok: true });
   });
@@ -246,6 +259,40 @@ function handleGift(req, res) {
     if (now - (p.lastGift || 0) < 800) return json(res, 429, { error: 'slow down' });
     p.lastGift = now;
     send(tres, 'gift', { from: id, item: item });
+    json(res, 200, { ok: true });
+  });
+}
+
+// ---------- Sếp đi tuần (công sở) ----------
+function bossActive(room, now) {
+  return room.boss && now < room.boss.start + room.boss.dur;
+}
+function tickBoss(room, now) {
+  if (room.clients.size === 0 || bossActive(room, now)) return;
+  if (!room.nextBossAt) {
+    room.nextBossAt = now + BOSS_GAP_MS[0] + Math.random() * (BOSS_GAP_MS[1] - BOSS_GAP_MS[0]);
+  } else if (now >= room.nextBossAt) {
+    room.boss = { start: now, dur: BOSS_WALK_MS };
+    room.nextBossAt = 0;
+    broadcast(room, 'boss', { elapsed: 0, dur: BOSS_WALK_MS });
+  }
+}
+
+// ---------- Dâng lễ vật lên bàn thờ (chùa) ----------
+function handleOffer(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const item = b && OFFERING_IDS.indexOf(b.item) >= 0 ? b.item : null;
+    if (!id || !item) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'temple'));
+    const p = room.players.get(id);
+    const now = Date.now();
+    if (!p) return json(res, 409, { error: 'not connected' });
+    if (now - p.lastOffer < 1500) return json(res, 429, { error: 'slow down' });
+    p.lastOffer = now;
+    room.offerings.push({ item: item, by: p.name, at: now });
+    if (room.offerings.length > MAX_OFFERINGS) room.offerings.shift();
+    broadcast(room, 'offerings', room.offerings);
     json(res, 200, { ok: true });
   });
 }
@@ -367,6 +414,7 @@ function route(req, res) {
   if (url.pathname === '/api/badmouth' && req.method === 'POST') return handleBadmouth(req, res);
   if (url.pathname === '/api/slap' && req.method === 'POST') return handleSlap(req, res);
   if (url.pathname === '/api/gift' && req.method === 'POST') return handleGift(req, res);
+  if (url.pathname === '/api/offer' && req.method === 'POST') return handleOffer(req, res);
   if (url.pathname === '/api/task' && req.method === 'POST') return handleTask(req, res);
   if (url.pathname === '/api/task/done' && req.method === 'POST') return handleTaskDone(req, res);
   if (url.pathname === '/api/task/review' && req.method === 'POST') return handleTaskReview(req, res);
@@ -385,10 +433,16 @@ setInterval(function () {
     room.tasks.forEach(function (t, tid) {
       if (now - t.at > TASK_TTL_MS) room.tasks.delete(tid);
     });
+    if (key.slice(-7) === '|office') tickBoss(room, now);
+    const kept = room.offerings.filter(function (o) { return now - o.at < OFFERING_TTL_MS; });
+    if (kept.length !== room.offerings.length) {
+      room.offerings = kept;
+      broadcast(room, 'offerings', kept);
+    }
     if (room.clients.size === 0 && room.players.size === 0 && room.tasks.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
-      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear });
+      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear, stress: p.stress, caught: p.caught });
     });
     const msg = 'event: snapshot\ndata: ' + JSON.stringify(list) + '\n\n';
     if (msg === room.lastSnapshot && now - room.lastSnapshotAt < 2000) return;

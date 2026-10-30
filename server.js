@@ -1,4 +1,4 @@
-// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime theo "mạng" (cùng IP public / cùng LAN), mỗi cảnh một phòng.
+// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime; mọi người chung một chùa và một văn phòng.
 // Không phụ thuộc thư viện ngoài: Server-Sent Events cho chiều xuống, POST JSON cho chiều lên.
 'use strict';
 
@@ -8,12 +8,11 @@ const path = require('path');
 const hasProfanity = require('./public/profanity.js');
 
 const PORT = process.env.PORT || 3000;
-const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const STALE_MS = 15000;
 const TICK_MS = 100;
 const MAX_BODY = 4096;
-const MAX_PER_ROOM = 60;
+const MAX_PER_ROOM = 30;
 const MAX_TASKS_PER_ROOM = 300;
 const TASK_TTL_MS = 24 * 60 * 60 * 1000; // task cũ hơn 1 ngày tự xoá
 const BOSS_WALK_MS = 20000;                // sếp đi ngang văn phòng trong 20 giây
@@ -38,36 +37,14 @@ const MIME = {
 // rooms: roomKey -> { players: Map<id, player>, clients: Map<id, res> }
 const rooms = new Map();
 
-function clientIp(req) {
-  let ip = req.socket.remoteAddress || '';
-  if (TRUST_PROXY && req.headers['x-forwarded-for']) {
-    // Lấy phần tử cuối (do proxy của mình thêm vào) — phần đầu do client tự khai, không tin được.
-    const parts = String(req.headers['x-forwarded-for']).split(',');
-    ip = parts[parts.length - 1].trim();
-  }
-  if (ip.indexOf('::ffff:') === 0) ip = ip.slice(7);
-  return ip;
-}
-
 // Chỉ có hai cảnh: chùa (mặc định) và công sở.
 function cleanScene(s) {
   return s === 'office' ? 'office' : 'temple';
 }
 
-// Mọi IP nội bộ (LAN / localhost) gom chung một phòng, IP public thì mỗi IP một phòng;
-// mỗi cảnh (chùa / công sở) là một phòng riêng.
+// Mọi người (ở mạng nào cũng vậy) chung một chùa và một văn phòng.
 function roomKeyFor(req, scene) {
-  return networkKey(req) + '|' + cleanScene(scene);
-}
-
-function networkKey(req) {
-  const ip = clientIp(req);
-  const isPrivate =
-    ip === '::1' || ip === '127.0.0.1' ||
-    /^10\./.test(ip) || /^192\.168\./.test(ip) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
-    /^169\.254\./.test(ip) || /^f[cd]/i.test(ip) || /^fe80/i.test(ip);
-  return isPrivate ? 'lan' : ip;
+  return 'all|' + cleanScene(scene);
 }
 
 function getRoom(key) {

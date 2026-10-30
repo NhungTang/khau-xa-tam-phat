@@ -35,6 +35,7 @@
       </div>
       <button id="btn-sutra" class="pill temple-only">📜 Chép kinh <span id="sutra-badge"></span></button>
       <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
+      <button id="btn-shop" class="pill temple-only">🎁 Đổi quà <span id="points" class="count">0</span></button>
       <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
       <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
       <button id="btn-assign" class="pill office-only">📋 Giao task</button>
@@ -54,6 +55,7 @@
         </svg>
         Tát
       </button>
+      <button id="btn-sleep" class="office-only">Ngủ</button>
       <button data-pose="kneel" class="temple-only">Quỳ</button>
       <button data-pose="bow" class="temple-only">Lạy</button>
       <button id="btn-badmouth" class="office-only">
@@ -151,6 +153,18 @@
         </div>
         <button type="submit" class="primary">Vào văn phòng</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Đổi quà + túi đồ (đặt trước popup chọn người để popup chọn người nằm trên) -->
+  <div id="shop" class="overlay hidden">
+    <div class="card wide">
+      <button class="close" id="shop-close" aria-label="Đóng">✕</button>
+      <h2>Đổi quà</h2>
+      <p class="sub">Bạn có <b id="shop-points">0</b> điểm · chép đúng mỗi bài kinh được 1 điểm</p>
+      <div id="shop-items" class="shop-grid"></div>
+      <h3>Túi đồ của bạn</h3>
+      <div id="inv-list" class="task-list"></div>
     </div>
   </div>
 

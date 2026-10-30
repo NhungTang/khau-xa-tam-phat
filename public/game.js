@@ -33,6 +33,41 @@
     { id: 'dao', emoji: '🍑', name: 'Đào tiên' },
     { id: 'tra', emoji: '🍵', name: 'Trà sen' },
   ];
+  // Vật phẩm đổi bằng điểm chép kinh; mỗi "slot" chỉ mặc được một món.
+  const ITEMS = [
+    // áo
+    { id: 'casa', emoji: '👘', name: 'Áo cà sa', price: 10, slot: 'robe' },
+    { id: 'robebrown', emoji: '🟫', name: 'Áo nâu', price: 6, slot: 'robe' },
+    { id: 'robewhite', emoji: '⚪', name: 'Áo tràng trắng', price: 6, slot: 'robe' },
+    // cổ
+    { id: 'beads', emoji: '📿', name: 'Chuỗi hạt', price: 3, slot: 'neck' },
+    { id: 'garland', emoji: '🌼', name: 'Vòng hoa cúc', price: 4, slot: 'neck' },
+    // đầu
+    { id: 'hat', emoji: '🟤', name: 'Mũ ni', price: 5, slot: 'head' },
+    { id: 'nonla', emoji: '👒', name: 'Nón lá', price: 5, slot: 'head' },
+    { id: 'flower', emoji: '🌸', name: 'Hoa cài đầu', price: 3, slot: 'head' },
+    // tay
+    { id: 'staff', emoji: '🦯', name: 'Tích trượng', price: 8, slot: 'hand' },
+    { id: 'lantern', emoji: '🏮', name: 'Đèn lồng', price: 6, slot: 'hand' },
+    { id: 'candle', emoji: '🕯️', name: 'Nến', price: 3, slot: 'hand' },
+    { id: 'bell', emoji: '🔔', name: 'Chuông', price: 6, slot: 'hand' },
+    { id: 'book', emoji: '📖', name: 'Kinh sách', price: 4, slot: 'hand' },
+    // lưng
+    { id: 'bag', emoji: '🎒', name: 'Tay nải', price: 4, slot: 'back' },
+    // hào quang
+    { id: 'halo', emoji: '✨', name: 'Hào quang', price: 20, slot: 'aura' },
+    { id: 'rainbow', emoji: '🌈', name: 'Cầu vồng', price: 25, slot: 'aura' },
+    // bạn đồng hành
+    { id: 'cat', emoji: '🐈', name: 'Mèo chùa', price: 12, slot: 'pet' },
+    { id: 'bird', emoji: '🐦', name: 'Chim sẻ', price: 8, slot: 'pet' },
+  ];
+  // Màu áo [chính, viền, chữ số điểm] theo áo đang mặc.
+  const ROBE_STYLES = {
+    casa: ['#d98a1c', '#a8620f', '#ffffff'],
+    robebrown: ['#7a4a24', '#5a3418', '#ffffff'],
+    robewhite: ['#eeeae0', '#b9b2a0', '#5a4a3a'],
+  };
+  const ITEM_BY_ID = new Map(ITEMS.map(function (it) { return [it.id, it]; }));
   const CUSHIONS = [];
   [600, 700].forEach(function (y) {
     [520, 610, 790, 880].forEach(function (x) { CUSHIONS.push({ x: x, y: y }); });
@@ -62,8 +97,10 @@
   };
   const K = {
     name: 'kxtp_name',
-    days: 'kxtp_days',
-    doneDate: 'kxtp_done_date',
+    days: 'kxtp_days', // điểm chép kinh (trước đây là số ngày — giữ khoá cũ để không mất điểm)
+    copies: 'kxtp_copies',
+    inv: 'kxtp_inv',
+    worn: 'kxtp_worn',
     draft: 'kxtp_draft',
     music: 'kxtp_music',
     officeName: 'kxtp_office_name',
@@ -74,13 +111,25 @@
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
+  // Mỗi lần chép đúng chuyển sang bài kế tiếp; ngày mới bắt đầu từ bài của ngày.
   function todaySutra() {
     const d = new Date();
     const dayNo = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
-    return window.SUTRAS[dayNo % window.SUTRAS.length];
+    return window.SUTRAS[(dayNo + copiesToday()) % window.SUTRAS.length];
   }
-  function doneToday() { return store.get(K.doneDate) === todayStr(); }
-  function getDays() { return parseInt(store.get(K.days), 10) || 0; }
+  function copiesToday() {
+    let c = null;
+    try { c = JSON.parse(store.get(K.copies) || 'null'); } catch (e) { /* bỏ qua */ }
+    return c && c.date === todayStr() ? c.n : 0;
+  }
+  function doneToday() { return copiesToday() > 0; }
+  function getPoints() { return parseInt(store.get(K.days), 10) || 0; }  function loadJson(k) {
+    try { const v = JSON.parse(store.get(k) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; }
+  }
+  const inv = loadJson(K.inv);   // itemId → số lượng
+  const worn = loadJson(K.worn); // slot → itemId
+  Object.keys(inv).forEach(function (id) { if (!ITEM_BY_ID.has(id) || !(inv[id] > 0)) delete inv[id]; });
+  Object.keys(worn).forEach(function (s) { if (!inv[worn[s]]) delete worn[s]; });
 
   // ---------- Trạng thái ----------
   const me = {
@@ -89,7 +138,8 @@
     x: 700, y: 840, dir: 1,
     pose: 'stand',
     gender: store.get(K.gender) === 'f' ? 'f' : 'm',
-    days: getDays(),
+    days: getPoints(),
+    wear: Object.values(worn),
     target: null,
   };
   const others = new Map();
@@ -127,6 +177,7 @@
     $('bottombar').classList.remove('hidden');
     started = true;
     updateSutraBadge();
+    updatePointsUI();
     setPose('stand');
     if (store.get(K.music) !== 'off') { synth.unlock(); startMusic(); }
     updateMusicBtn();
@@ -194,6 +245,7 @@
       b.classList.toggle('active', b.getAttribute('data-pose') === pose);
     });
     $('btn-eat').classList.toggle('active', pose === 'eat');
+    $('btn-sleep').classList.toggle('active', pose === 'sleep');
   }
 
   // ---------- Thọ trai ----------
@@ -221,13 +273,8 @@
     const text = input.value.trim().slice(0, 120);
     if (!text) return;
     if (scene === 'temple' && window.hasProfanity(text)) {
-      if (doneToday()) {
-        // Đã chép kinh hôm nay mà nói bậy → huỷ bài hôm nay, phải chép lại.
-        cancelToday();
-        toast('Tâm chưa tịnh — bạn phải chép lại kinh hôm nay. Tin nhắn chưa được gửi.', 6000);
-      } else {
-        toast('Lời nói chưa thanh tịnh — tin nhắn có từ ngữ không phù hợp nên chưa được gửi.');
-      }
+      penalize();
+      toast('Lời nói chưa thanh tịnh — bị trừ 1 điểm. Tin nhắn chưa được gửi.', 6000);
       return;
     }
     input.value = '';
@@ -263,7 +310,7 @@
       body: JSON.stringify(body),
       signal: ctrl ? ctrl.signal : undefined,
     }).catch(function () { /* mất mạng tạm thời */ })
-      .then(function () { if (timer) clearTimeout(timer); });
+      .then(function (r) { if (timer) clearTimeout(timer); return r; });
   }
 
   let es = null;
@@ -297,6 +344,15 @@
       }
     });
     es.addEventListener('tasks', function (ev) { onTasks(JSON.parse(ev.data)); });
+    es.addEventListener('gift', function (ev) {
+      const g = JSON.parse(ev.data);
+      const it = ITEM_BY_ID.get(g.item);
+      if (!it) return;
+      inv[it.id] = (inv[it.id] || 0) + 1;
+      saveInv();
+      const o = others.get(g.from);
+      toast((o ? o.name : 'Một người') + ' tặng bạn ' + it.emoji + ' ' + it.name + '!', 6000);
+    });
     es.addEventListener('slap', function (ev) {
       const s = JSON.parse(ev.data);
       slaps.set(s.target, Date.now());
@@ -319,7 +375,7 @@
     const payload = {
       id: me.id, name: me.name, scene: scene,
       x: Math.round(me.x), y: Math.round(me.y),
-      dir: me.dir, pose: me.pose, days: me.days, gender: me.gender,
+      dir: me.dir, pose: me.pose, days: me.days, gender: me.gender, wear: me.wear,
       food: me.pose === 'eat' ? me.food : undefined,
       lotus: Date.now() < (me.lotusUntil || 0),
     };
@@ -403,6 +459,19 @@
   $('btn-badmouth').addEventListener('click', function () {
     if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
     pickColleague('Nói xấu ai?', 'Chọn một đồng nghiệp đang ở văn phòng', Array.from(others.keys()), badmouth);
+  });
+
+  // Đi ngủ: phải đến gần bàn làm việc → nằm dưới gầm bàn.
+  $('btn-sleep').addEventListener('click', function () {
+    let best = null, bestD = 110;
+    DESKS.forEach(function (d) {
+      const dist = Math.hypot(me.x - d.x, me.y - (d.y + 30));
+      if (dist < bestD) { best = d; bestD = dist; }
+    });
+    if (!best) { toast('Đến gần bàn làm việc mới ngủ được.'); return; }
+    me.x = best.x;
+    me.y = best.y + 4;
+    setPose('sleep');
   });
 
   // Tát đồng nghiệp: chỉ tát được người đang đứng gần.
@@ -689,16 +758,17 @@
       .trim();
   }
 
-  // Tâm chưa tịnh (nói bậy / trả lời sai câu hỏi) → huỷ bài chép hôm nay, trừ 1 ngày.
-  function cancelToday() {
-    if (!doneToday()) return;
-    const days = Math.max(0, getDays() - 1);
-    store.set(K.days, String(days));
-    store.del(K.doneDate);
-    me.days = days;
-    me.lotusUntil = 0;
+  function setPoints(n) {
+    n = Math.max(0, n);
+    store.set(K.days, String(n));
+    me.days = n;
     lastSent = '';
-    updateSutraBadge();
+    updatePointsUI();
+  }
+  // Tâm chưa tịnh (nói bậy ở chùa / trả lời sai câu hỏi) → trừ 1 điểm.
+  function penalize() {
+    setPoints(getPoints() - 1);
+    me.lotusUntil = 0;
   }
 
   function updateSutraBadge() {
@@ -715,18 +785,14 @@
     currentSutra = todaySutra();
     $('sutra-title').textContent = currentSutra.title;
     $('sutra-text').textContent = currentSutra.text;
-    $('sutra-meta').textContent = 'Đã hoàn thành ' + getDays() + ' ngày · Hôm nay ' + todayStr();
-    const draft = JSON.parse(store.get(K.draft) || 'null');
-    sutraInput.value = draft && draft.date === todayStr() ? draft.text : '';
-    if (doneToday()) {
-      setStatus('🙏 Hôm nay bạn đã chép kinh xong. Hẹn ngày mai!', 'ok');
-      sutraInput.disabled = true;
-      $('sutra-check').disabled = true;
-    } else {
-      setStatus('');
-      sutraInput.disabled = false;
-      $('sutra-check').disabled = false;
-    }
+    $('sutra-meta').textContent = 'Điểm: ' + getPoints() + ' · Hôm nay đã chép ' + copiesToday() + ' bài · ' + todayStr();
+    let draft = null;
+    try { draft = JSON.parse(store.get(K.draft) || 'null'); } catch (e) { /* bỏ qua */ }
+    sutraInput.value = draft && draft.date === todayStr() && draft.title === currentSutra.title ? draft.text : '';
+    sutraDone = false;
+    setStatus('Chép đúng mỗi bài được cộng 1 điểm.');
+    sutraInput.disabled = false;
+    $('sutra-check').textContent = 'Kiểm tra';
     $('sutra').classList.remove('hidden');
     keys.clear();
   }
@@ -739,6 +805,111 @@
       setTimeout(showQuiz, QUIZ_DELAY_MS);
     }
   });
+
+  // ---------- Đổi quà ----------
+  function saveInv() {
+    Object.keys(worn).forEach(function (s) { if (!inv[worn[s]]) delete worn[s]; });
+    store.set(K.inv, JSON.stringify(inv));
+    store.set(K.worn, JSON.stringify(worn));
+    me.wear = Object.values(worn);
+    lastSent = '';
+    if (!$('shop').classList.contains('hidden')) renderShop();
+  }
+  function updatePointsUI() {
+    $('points').textContent = getPoints();
+    if (!$('shop').classList.contains('hidden')) renderShop();
+  }
+  function removeOne(id) {
+    inv[id] = (inv[id] || 0) - 1;
+    if (inv[id] <= 0) delete inv[id];
+    saveInv();
+  }
+
+  function renderShop() {
+    const pts = getPoints();
+    $('shop-points').textContent = pts;
+    const grid = $('shop-items');
+    grid.textContent = '';
+    ITEMS.forEach(function (it) {
+      const b = document.createElement('button');
+      b.className = 'shop-item';
+      b.disabled = pts < it.price;
+      [['emoji', it.emoji], ['', it.name], ['price', it.price + ' điểm']].forEach(function (x) {
+        const s = document.createElement('span');
+        s.className = x[0];
+        s.textContent = x[1];
+        b.appendChild(s);
+      });
+      b.addEventListener('click', function () {
+        if (getPoints() < it.price) return;
+        setPoints(getPoints() - it.price);
+        inv[it.id] = (inv[it.id] || 0) + 1;
+        saveInv();
+        toast('Đã đổi ' + it.emoji + ' ' + it.name + '.');
+      });
+      grid.appendChild(b);
+    });
+
+    const list = $('inv-list');
+    list.textContent = '';
+    const owned = ITEMS.filter(function (it) { return inv[it.id] > 0; });
+    if (owned.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = 'Túi đồ trống — chép kinh lấy điểm để đổi quà nhé.';
+      list.appendChild(p);
+      return;
+    }
+    owned.forEach(function (it) {
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      const info = document.createElement('div');
+      info.className = 'task-info';
+      info.textContent = it.emoji + ' ' + it.name + ' ×' + inv[it.id];
+      row.appendChild(info);
+      const wearing = worn[it.slot] === it.id;
+      const btns = [
+        [wearing ? 'Cởi' : 'Mặc', wearing ? '' : 'primary', function () {
+          if (wearing) delete worn[it.slot];
+          else worn[it.slot] = it.id;
+          saveInv();
+        }],
+        ['Tặng', '', function () { giftItem(it); }],
+        ['Xóa', '', function () {
+          if (window.confirm('Xóa 1 ' + it.name + '?')) removeOne(it.id);
+        }],
+      ];
+      btns.forEach(function (x) {
+        const b = document.createElement('button');
+        b.textContent = x[0];
+        if (x[1]) b.className = x[1];
+        b.addEventListener('click', x[2]);
+        row.appendChild(b);
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function giftItem(it) {
+    if (others.size === 0) { toast('Chưa có ai khác đang online ở đây.'); return; }
+    pickColleague('Tặng ' + it.name + ' cho ai?', 'Người đang online cùng chỗ với bạn', Array.from(others.keys()), function (id, name) {
+      post('/api/gift', { id: me.id, target: id, item: it.id, scene: scene }).then(function (r) {
+        if (r && r.ok) {
+          removeOne(it.id);
+          toast('Đã tặng ' + it.emoji + ' ' + it.name + ' cho ' + name + '.');
+        } else {
+          toast('Chưa tặng được — có thể ' + name + ' vừa rời đi.');
+        }
+      });
+    });
+  }
+
+  $('btn-shop').addEventListener('click', function () {
+    renderShop();
+    $('shop').classList.remove('hidden');
+    keys.clear();
+  });
+  $('shop-close').addEventListener('click', function () { $('shop').classList.add('hidden'); });
 
   // ---------- Câu hỏi sau khi chép kinh (chỉ mình user thấy) ----------
   const QUIZ_DELAY_MS = 30000;
@@ -793,7 +964,6 @@
   ];
 
   function showQuiz() {
-    if (!doneToday()) return; // đã bị huỷ bài (nói bậy) trong lúc chờ
     if (overlayOpen() || scene !== 'temple') { setTimeout(showQuiz, 3000); return; } // đợi đóng popup khác / về chùa
     const item = QUIZ[Math.floor(Math.random() * QUIZ.length)];
     $('quiz-question').textContent = item.q;
@@ -810,10 +980,10 @@
       const item = QUIZ[Number($('quiz').dataset.idx)];
       const right = ans === item.good;
       $('quiz-answer').textContent = item[ans] +
-        (right ? '' : '\nTâm chưa tịnh — bạn phải chép lại kinh hôm nay.');
+        (right ? '' : '\nTâm chưa tịnh — bị trừ 1 điểm.');
       $('quiz-answer').className = right ? 'ok' : 'err';
-      if (!right) cancelToday();
-      $('quiz-close').textContent = right ? 'Nam mô A Di Đà Phật 🙏' : 'Chép lại kinh';
+      if (!right) penalize();
+      $('quiz-close').textContent = right ? 'Nam mô A Di Đà Phật 🙏' : 'Chép kinh lấy lại điểm';
       $('quiz-close').dataset.redo = right ? '' : '1';
       $('quiz-choices').classList.add('hidden');
       $('quiz-close').classList.remove('hidden');
@@ -825,7 +995,7 @@
   });
 
   sutraInput.addEventListener('input', function () {
-    store.set(K.draft, JSON.stringify({ date: todayStr(), text: sutraInput.value }));
+    store.set(K.draft, JSON.stringify({ date: todayStr(), title: currentSutra.title, text: sutraInput.value }));
   });
   function noPaste(e) {
     e.preventDefault();
@@ -837,22 +1007,21 @@
     if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') noPaste(e);
   });
 
+  let sutraDone = false;
   $('sutra-check').addEventListener('click', function () {
-    if (doneToday()) return;
+    if (sutraDone) { openSutra(); return; } // "Chép bài tiếp"
     const want = normalize(currentSutra.text);
     const got = normalize(sutraInput.value);
     if (got === want) {
-      const days = getDays() + 1;
-      store.set(K.days, String(days));
-      store.set(K.doneDate, todayStr());
+      store.set(K.copies, JSON.stringify({ date: todayStr(), n: copiesToday() + 1 }));
       store.del(K.draft);
-      me.days = days;
-      lastSent = '';
+      setPoints(getPoints() + 1);
       me.lotusUntil = Date.now() + LOTUS_MS;
       quizPending = true;
-      setStatus('🙏 Viên mãn! Bạn đã hoàn thành ' + days + ' ngày chép kinh.', 'ok');
+      sutraDone = true;
+      setStatus('🙏 Viên mãn! +1 điểm — bạn đang có ' + getPoints() + ' điểm.', 'ok');
       sutraInput.disabled = true;
-      $('sutra-check').disabled = true;
+      $('sutra-check').textContent = 'Chép bài tiếp';
       updateSutraBadge();
       return;
     }
@@ -940,7 +1109,7 @@
       if (Math.abs(vx) > 0.1) me.dir = vx > 0 ? 1 : -1;
       if (me.pose !== 'walk') {
         me.pose = 'walk';
-        document.querySelectorAll('[data-pose], #btn-eat').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('[data-pose], #btn-eat, #btn-sleep').forEach(function (b) { b.classList.remove('active'); });
       }
     } else if (me.pose === 'walk') {
       setPose('stand');
@@ -1391,6 +1560,10 @@
   let officeLook = false;
   let darkFace = false;
   let slapCheek = false;
+  let wearing = new Set(); // vật phẩm đang mặc của nhân vật đang vẽ (chỉ hiện ở chùa)
+  let robeMain = ROBE;
+  let robeShade = ROBE_DARK;
+  let robeText = '#ffffff';
   let female = false;
 
   function robeShape(topY, botY, topW, botW) {
@@ -1405,16 +1578,47 @@
 
   function torso(topY, botY, days) {
     if (officeLook) { shirt(topY, botY); return; }
-    ctx.fillStyle = ROBE;
+    ctx.fillStyle = robeMain;
     robeShape(topY, botY, 26, 34);
     ctx.fill();
-    ctx.strokeStyle = ROBE_DARK;
+    ctx.strokeStyle = robeShade;
     ctx.lineWidth = 1.5;
     ctx.stroke();
     // vạt áo chéo
     ctx.beginPath(); ctx.moveTo(-6, topY + 1); ctx.lineTo(5, topY + 14); ctx.stroke();
-    // số ngày chép kinh trên áo
-    ctx.fillStyle = '#ffffff';
+    if (wearing.has('casa')) { // dải cà sa vắt chéo vai
+      ctx.strokeStyle = '#8a4a10';
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-11, topY + 4); ctx.lineTo(10, botY - 3); ctx.stroke();
+    }
+    if (wearing.has('beads')) { // chuỗi hạt quanh cổ
+      ctx.fillStyle = '#6b3a1a';
+      for (let i = 0; i <= 10; i++) {
+        const a = Math.PI * i / 10;
+        ctx.beginPath(); ctx.arc(Math.cos(a) * 8, topY + 2 + Math.sin(a) * 10, 1.7, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.arc(0, topY + 14, 2.2, 0, Math.PI * 2); ctx.fill();
+    }
+    if (wearing.has('garland')) { // vòng hoa cúc vàng
+      for (let i = 0; i <= 8; i++) {
+        const a = Math.PI * i / 8;
+        ctx.fillStyle = i % 2 ? '#e8902a' : '#f2c230';
+        ctx.beginPath(); ctx.arc(Math.cos(a) * 9, topY + 2 + Math.sin(a) * 11, 2.8, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    if (wearing.has('bag')) { // tay nải đeo chéo
+      ctx.strokeStyle = '#8c6239';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(10, topY + 3); ctx.lineTo(-12, botY - 8); ctx.stroke();
+      ctx.fillStyle = '#a77b4f';
+      ctx.fillRect(-22, botY - 16, 12, 11);
+      ctx.strokeStyle = '#6e4a28';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-22, botY - 16, 12, 11);
+    }
+    // số điểm chép kinh trên áo
+    ctx.fillStyle = robeText;
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1448,6 +1652,23 @@
   }
 
   function head(y) {
+    if (wearing.has('rainbow')) { // cầu vồng sau đầu
+      ['#e74c3c', '#f39c12', '#f1c40f', '#2ecc71', '#3498db', '#8e44ad'].forEach(function (c, i) {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(0, y + 6, 28 - i * 2.3, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+      });
+    }
+    if (wearing.has('halo')) { // hào quang sau đầu
+      const g = ctx.createRadialGradient(0, y, 10, 0, y, 24);
+      g.addColorStop(0, 'rgba(255,225,140,.75)');
+      g.addColorStop(1, 'rgba(255,225,140,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, y, 24, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#e8b64c';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, y, 18, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.fillStyle = darkFace ? '#7a7a7a' : SKIN;
     ctx.beginPath(); ctx.arc(0, y, 13, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(150,100,70,.5)';
@@ -1456,6 +1677,36 @@
     if (slapCheek) { // má đỏ sau khi bị tát
       ctx.fillStyle = 'rgba(220,40,40,.65)';
       ctx.beginPath(); ctx.ellipse(7, y + 4, 4.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    if (wearing.has('hat')) { // mũ ni nâu của nhà sư: chụp kín đầu, hai vạt che tai
+      ctx.fillStyle = '#7a4a24';
+      ctx.beginPath();
+      ctx.arc(0, y - 1, 14.5, Math.PI, Math.PI * 2);
+      ctx.lineTo(14.5, y + 10); ctx.lineTo(9, y + 10); ctx.lineTo(9, y + 1);
+      ctx.lineTo(-9, y + 1); ctx.lineTo(-9, y + 10); ctx.lineTo(-14.5, y + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#5e3819';
+      ctx.fillRect(-14.5, y - 3, 29, 3);
+    }
+    if (wearing.has('flower')) { // hoa cài bên tai
+      ctx.fillStyle = '#f19cb7';
+      for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2;
+        ctx.beginPath(); ctx.arc(10 + Math.cos(a) * 3.2, y - 8 + Math.sin(a) * 3.2, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#f2c230';
+      ctx.beginPath(); ctx.arc(10, y - 8, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    if (wearing.has('nonla')) { // nón lá
+      ctx.fillStyle = '#e8d39a';
+      ctx.beginPath(); ctx.moveTo(-24, y - 3); ctx.lineTo(0, y - 24); ctx.lineTo(24, y - 3); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#b89a55';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-16, y - 10); ctx.lineTo(16, y - 10);
+      ctx.moveTo(-8, y - 17); ctx.lineTo(8, y - 17);
+      ctx.stroke();
     }
     if (officeLook) { // tóc mái: vòm tóc phủ đỉnh đầu, mép lượn sóng ngang trán (nữ dài hơn nam)
       const ey = y - (female ? 3 : 6);
@@ -1470,6 +1721,67 @@
       ctx.closePath();
       ctx.fill();
     }
+  }
+
+  // Đồ cầm tay phải (trừ tích trượng — vẽ riêng vì dài).
+  function drawHandItem(t) {
+    if (wearing.has('lantern')) {
+      ctx.strokeStyle = '#3a2414';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(22, -30); ctx.lineTo(22, -24); ctx.stroke();
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.ellipse(22, -15, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#e8b64c';
+      ctx.fillRect(18, -25, 8, 2);
+      ctx.fillRect(18, -7, 8, 2);
+      ctx.fillStyle = 'rgba(255,200,90,' + (0.35 + Math.sin(t / 200) * 0.15) + ')';
+      ctx.beginPath(); ctx.arc(22, -15, 13, 0, Math.PI * 2); ctx.fill();
+    } else if (wearing.has('candle')) {
+      ctx.fillStyle = '#f2e6c8';
+      ctx.fillRect(19, -40, 6, 14);
+      ctx.fillStyle = '#ffcf5c';
+      ctx.beginPath(); ctx.ellipse(22 + Math.sin(t / 90), -44, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (wearing.has('bell')) {
+      ctx.fillStyle = '#d9a441';
+      ctx.beginPath();
+      ctx.moveTo(15, -18); ctx.quadraticCurveTo(15, -34, 22, -34); ctx.quadraticCurveTo(29, -34, 29, -18);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8a5a1e';
+      ctx.beginPath(); ctx.arc(22, -16, 2, 0, Math.PI * 2); ctx.fill();
+    } else if (wearing.has('book')) {
+      ctx.fillStyle = '#7a3d12';
+      ctx.fillRect(16, -36, 12, 15);
+      ctx.fillStyle = '#e8b64c';
+      ctx.fillRect(18, -33, 8, 1.5);
+      ctx.fillRect(18, -29, 8, 1.5);
+    }
+  }
+
+  // Mèo chùa ngồi bên trái chân.
+  function drawCat(x, y) {
+    ctx.fillStyle = '#e0a15a';
+    ctx.beginPath(); ctx.ellipse(x, y - 8, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y - 19, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y - 21); ctx.lineTo(x - 4, y - 28); ctx.lineTo(x - 1, y - 23);
+    ctx.moveTo(x + 6, y - 21); ctx.lineTo(x + 4, y - 28); ctx.lineTo(x + 1, y - 23);
+    ctx.fill();
+    ctx.strokeStyle = '#e0a15a';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x + 8, y - 4); ctx.quadraticCurveTo(x + 16, y - 6, x + 13, y - 16); ctx.stroke();
+    ctx.fillStyle = '#3a2414';
+    ctx.beginPath(); ctx.arc(x - 2, y - 19, 0.9, 0, Math.PI * 2); ctx.arc(x + 2, y - 19, 0.9, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Chim sẻ bay chập chờn bên vai.
+  function drawBird(x, y) {
+    ctx.fillStyle = '#8a5a2b';
+    ctx.beginPath(); ctx.ellipse(x, y, 6, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 5, y - 3, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e8b64c';
+    ctx.beginPath(); ctx.moveTo(x - 8, y - 3); ctx.lineTo(x - 11, y - 2); ctx.lineTo(x - 8, y - 1); ctx.fill();
+    ctx.fillStyle = '#6b4320';
+    ctx.beginPath(); ctx.moveTo(x - 1, y - 2); ctx.lineTo(x + 5, y - 8); ctx.lineTo(x + 4, y - 1); ctx.fill();
   }
 
   // Trả về độ cao đỉnh đầu (để đặt tên/bong bóng chat).
@@ -1490,9 +1802,29 @@
     const slapAgo = Date.now() - (slaps.get(p.id) || 0);
     slapCheek = slapAgo < 3000;
     if (slapAgo < 600) ctx.translate(Math.sin(t / 22) * 3 * (1 - slapAgo / 600), 0); // rung người
+    wearing = officeLook ? new Set() : new Set(p.wear || []);
+    const robeId = officeLook ? null : (p.wear || []).find(function (w) { return ROBE_STYLES[w]; });
+    const robeStyle = ROBE_STYLES[robeId] || [ROBE, ROBE_DARK, '#ffffff'];
+    robeMain = robeStyle[0];
+    robeShade = robeStyle[1];
+    robeText = robeStyle[2];
 
-    if (p.pose === 'sit') {
-      ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : ROBE_DARK;
+    if (p.pose === 'sleep') {
+      // nằm ngang dưới gầm bàn, đầu bên trái
+      ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : robeShade;
+      ctx.fillRect(4, -13, 30, 10);
+      ctx.fillStyle = officeLook ? SHIRT : robeMain;
+      ctx.fillRect(-20, -16, 28, 14);
+      ctx.strokeStyle = officeLook ? SHIRT_LINE : robeShade;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-20, -16, 28, 14);
+      ctx.save();
+      ctx.translate(-31, 0);
+      head(-11);
+      ctx.restore();
+      topOfHead = -26;
+    } else if (p.pose === 'sit') {
+      ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : robeShade;
       ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
       torso(-46, -10, p.days);
       ctx.fillStyle = SKIN;
@@ -1501,7 +1833,7 @@
       topOfHead = -71;
     } else if (p.pose === 'eat') {
       // ngồi, cứ ~2 giây đưa món lên miệng một lần
-      ctx.fillStyle = ROBE_DARK;
+      ctx.fillStyle = robeShade;
       ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
       torso(-46, -10, p.days);
       const ph = ((t + (p.seed || 0) * 2000) % 2000) / 2000;
@@ -1518,7 +1850,7 @@
       topOfHead = -71;
     } else if (p.pose === 'kneel') {
       // Nhìn thẳng (hướng về tượng): quỳ thẳng lưng, cẳng chân gập dưới thân.
-      ctx.fillStyle = ROBE_DARK;
+      ctx.fillStyle = robeShade;
       ctx.beginPath(); ctx.ellipse(0, -6, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
       torso(-46, -8, p.days);
       // tay chắp trước ngực
@@ -1529,7 +1861,7 @@
     } else if (p.pose === 'bow') {
       const dir = p.dir || 1;
       // cẳng chân gập phía sau
-      ctx.fillStyle = ROBE_DARK;
+      ctx.fillStyle = robeShade;
       ctx.beginPath(); ctx.ellipse(-dir * 8, -6, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
       const ph = ((t + (p.seed || 0) * 3000) % 3200) / 3200;
       const bend = ph < 0.35 ? ph / 0.35 : ph < 0.65 ? 1 : 1 - (ph - 0.65) / 0.35;
@@ -1580,6 +1912,18 @@
       head(-62);
       ctx.restore();
       topOfHead = -75 - bob;
+    }
+    if (p.pose !== 'bow' && p.pose !== 'sleep') drawHandItem(t);
+    if (wearing.has('cat')) drawCat(-34, 0);
+    if (wearing.has('bird')) drawBird(-30, -40 - Math.abs(Math.sin(t / 300)) * 4);
+    if (wearing.has('staff') && p.pose !== 'bow' && p.pose !== 'sleep') { // tích trượng cầm bên phải
+      ctx.strokeStyle = '#8a5a2b';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(22, -2); ctx.lineTo(22, -88); ctx.stroke();
+      ctx.strokeStyle = '#e8b64c';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(22, -93, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(17, -88, 2.5, 0, Math.PI * 2); ctx.arc(27, -88, 2.5, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.restore();
     return y + topOfHead;
@@ -1640,6 +1984,20 @@
     ctx.scale(0.4, 0.4);
     ctx.translate(-32, -40);
     LOTUS_PETALS.forEach(function (p) { ctx.fillStyle = p[0]; ctx.fill(p[1]); });
+    ctx.restore();
+  }
+
+  function drawZzz(x, y, t) {
+    ctx.save();
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(70,90,140,.9)';
+    ['z', 'z', 'Z'].forEach(function (ch, i) {
+      const ph = ((t / 900) + i * 0.33) % 1;
+      ctx.globalAlpha = 1 - ph;
+      ctx.fillText(ch, x + i * 6 + ph * 6, y - i * 6 - ph * 10);
+    });
     ctx.restore();
   }
 
@@ -1730,7 +2088,8 @@
     if (started) actors.push({ p: me, x: me.x, y: me.y, isMe: true });
     others.forEach(function (o) { actors.push({ p: o, x: o.rx, y: o.ry, isMe: false }); });
     actors.forEach(function (a) {
-      items.push({ y: a.y, draw: function () { a.top = drawMonk(a.p, a.x, a.y, now, a.isMe); } });
+      const key = a.p.pose === 'sleep' ? a.y - 10 : a.y; // ngủ dưới gầm bàn → vẽ trước bàn
+      items.push({ y: key, draw: function () { a.top = drawMonk(a.p, a.x, a.y, now, a.isMe); } });
     });
     items.sort(function (a, b) { return a.y - b.y; });
     items.forEach(function (it) { it.draw(); });
@@ -1742,6 +2101,7 @@
       if (lotus) { drawLotus(a.x, top - 9, now); top -= 20; }
       const slapAgo = Date.now() - (slaps.get(a.p.id) || 0);
       if (slapAgo < 1000) drawPow(a.x, top - 22, slapAgo);
+      if (a.p.pose === 'sleep') drawZzz(a.x - 18, top - 6, now);
       drawLabel(a.p.name, a.x, top - 4);
       const b = bubbles.get(a.p.id);
       if (b) drawBubble(b.text, a.x, top - 18, b.until);

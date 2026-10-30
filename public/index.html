@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#3b2414">
+  <title>Khẩu Xà Tâm Phật</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <!-- Thanh trên -->
+  <header id="topbar" class="hidden">
+    <div class="brand">卍 Khẩu Xà Tâm Phật</div>
+    <div class="top-actions">
+      <span id="online" title="Số người cùng mạng đang trong chùa">👥 1</span>
+      <button id="btn-sutra" class="pill">📜 Chép kinh <span id="sutra-badge"></span></button>
+      <button id="btn-music" class="pill icon" title="Bật/tắt nhạc">🔊</button>
+    </div>
+  </header>
+
+  <!-- Thanh dưới: hành động + chat -->
+  <footer id="bottombar" class="hidden">
+    <div class="poses">
+      <button data-pose="stand">Đứng</button>
+      <button data-pose="sit">Ngồi</button>
+      <button data-pose="kneel">Quỳ</button>
+      <button data-pose="bow">Lạy</button>
+    </div>
+    <form id="chat-form" autocomplete="off">
+      <input id="chat-input" maxlength="120" placeholder="Nói gì đó… (Enter để gửi)">
+      <button type="submit">Gửi</button>
+    </form>
+  </footer>
+
+  <!-- Màn hình chọn tên -->
+  <div id="welcome" class="overlay">
+    <div class="card">
+      <div class="lotus">🪷</div>
+      <h1>Khẩu Xà Tâm Phật</h1>
+      <p class="sub">Đi chùa trực tuyến — tâm an là đủ</p>
+      <form id="name-form" autocomplete="off">
+        <label for="name-input">Pháp danh của bạn</label>
+        <input id="name-input" maxlength="24" placeholder="Phật tử">
+        <button type="submit" class="primary">Vào chùa</button>
+      </form>
+      <p class="hint">Di chuyển: phím mũi tên / WASD hoặc chạm vào nền gạch.</p>
+    </div>
+  </div>
+
+  <!-- Chép kinh -->
+  <div id="sutra" class="overlay hidden">
+    <div class="card wide">
+      <button class="close" id="sutra-close" aria-label="Đóng">✕</button>
+      <h2>Nhiệm vụ hôm nay: chép kinh</h2>
+      <p class="sub" id="sutra-meta"></p>
+      <h3 id="sutra-title"></h3>
+      <pre id="sutra-text" class="sutra-text"></pre>
+      <label for="sutra-input">Chép lại chính xác từng chữ (kể cả dấu câu và xuống dòng):</label>
+      <textarea id="sutra-input" rows="7" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      <div class="sutra-actions">
+        <span id="sutra-status"></span>
+        <button id="sutra-check" class="primary">Kiểm tra</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden" role="alert"></div>
+
+  <audio id="bgm" src="assets/chu-dai-bi.mp3" loop preload="auto"></audio>
+
+  <script src="profanity.js"></script>
+  <script src="sutras.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

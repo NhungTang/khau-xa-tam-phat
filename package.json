@@ -1,0 +1,13 @@
+{
+  "name": "khau-xa-tam-phat",
+  "version": "1.0.0",
+  "description": "Khẩu Xà Tâm Phật — đi chùa trực tuyến",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=12"
+  }
+}

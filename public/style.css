@@ -67,7 +67,7 @@ input, textarea {
   top: 0; left: 0; right: 0;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 8px 12px;
   padding-top: max(8px, env(safe-area-inset-top));
@@ -75,11 +75,35 @@ input, textarea {
   pointer-events: none;
 }
 #topbar > * { pointer-events: auto; }
-.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; }
-.top-actions { display: flex; align-items: center; gap: 8px; }
-#online { font-size: 14px; opacity: .85; }
+.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 32px; }
+.top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.top-row { display: flex; align-items: center; gap: 8px; }
+#online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold-soft);
+  border: 1px solid rgba(232, 182, 76, .55);
+  background: rgba(59, 36, 20, .85);
+}
 .pill { border-radius: 999px; padding: 6px 12px; }
-.pill.icon { padding: 6px 10px; }
+.pill.icon { padding: 6px 10px; display: inline-flex; align-items: center; }
+.ico {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ico .solid { fill: currentColor; }
+#btn-music .ico-off,
+#btn-music.muted .ico-on { display: none; }
+#btn-music.muted .ico-off { display: block; }
+#btn-music.muted { opacity: .7; }
 #sutra-badge { font-weight: 700; }
 
 #bottombar {
@@ -157,6 +181,14 @@ input, textarea {
 #sutra-status { font-size: 14px; margin-top: 10px; }
 #sutra-status.ok { color: var(--ok); font-weight: 600; }
 #sutra-status.err { color: var(--err); }
+
+.food-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.food-list button { display: flex; align-items: center; gap: 8px; padding: 10px; text-align: left; }
+.food-list .emoji { font-size: 24px; }
 
 #toast {
   position: fixed;

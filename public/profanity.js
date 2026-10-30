@@ -5,14 +5,14 @@
   // Từ đơn (so khớp nguyên từ, sau khi chuẩn hoá NFC + chữ thường).
   // Chỉ đưa vào dạng không dấu khi không trùng từ thường (vd. bỏ "lon", "cac", "buoi", "deo").
   const WORDS = [
-    'đụ', 'địt', 'đĩ', 'lồn', 'buồi', 'cặc', 'đéo', 'loz',
+    'đụ', 'địt', 'đĩ', 'lồn', 'buồi', 'cặc', 'đéo', 'loz', 'chó', 'câm', 'điên', 'ngu',
     'đm', 'đmm', 'đcm', 'đkm', 'dm', 'dmm', 'dcm', 'dkm', 'dmcs', 'đmcs',
     'vcl', 'vkl', 'vl', 'vcc', 'clm', 'cmm', 'cc', 'cl',
     'fuck', 'fucking', 'fucker', 'motherfucker', 'shit', 'bitch', 'cunt', 'asshole', 'dick', 'pussy',
   ];
   // Cụm hai từ.
   const PHRASES = [
-    'đụ má', 'đụ mẹ', 'địt mẹ', 'địt mày', 'chó đẻ', 'mẹ mày', 'má mày',
+    'đụ má', 'đụ mẹ', 'địt mẹ', 'địt mày', 'chó đẻ', 'mẹ mày', 'má mày', 'im mồm',
     'du ma', 'du me', 'dit me', 'dit may', 'cho de', 'vai lon', 'vai loz',
   ];
 

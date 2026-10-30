@@ -14,9 +14,26 @@
   <header id="topbar" class="hidden">
     <div class="brand">卍 Khẩu Xà Tâm Phật</div>
     <div class="top-actions">
-      <span id="online" title="Số người cùng mạng đang trong chùa">👥 1</span>
+      <div class="top-row">
+      <span id="online" class="pill" title="Số người cùng mạng đang trong chùa">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span id="online-count">1</span>
+      </span>
+      <button id="btn-music" class="pill icon" title="Bật/tắt nhạc" aria-label="Bật/tắt nhạc">
+        <svg class="ico ico-on" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="solid" d="M11 5 6 9H2v6h4l5 4V5z"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+        <svg class="ico ico-off" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="solid" d="M11 5 6 9H2v6h4l5 4V5z"/>
+          <path d="M22 9l-6 6"/><path d="M16 9l6 6"/>
+        </svg>
+      </button>
+      </div>
       <button id="btn-sutra" class="pill">📜 Chép kinh <span id="sutra-badge"></span></button>
-      <button id="btn-music" class="pill icon" title="Bật/tắt nhạc">🔊</button>
     </div>
   </header>
 
@@ -27,9 +44,10 @@
       <button data-pose="sit">Ngồi</button>
       <button data-pose="kneel">Quỳ</button>
       <button data-pose="bow">Lạy</button>
+      <button id="btn-eat">Ăn</button>
     </div>
     <form id="chat-form" autocomplete="off">
-      <input id="chat-input" maxlength="120" placeholder="Nói gì đó… (Enter để gửi)">
+      <input id="chat-input" maxlength="120" placeholder="Nói lời hay ý đẹp… (Enter để gửi)">
       <button type="submit">Gửi</button>
     </form>
   </footer>
@@ -37,7 +55,17 @@
   <!-- Màn hình chọn tên -->
   <div id="welcome" class="overlay">
     <div class="card">
-      <div class="lotus">🪷</div>
+      <div class="lotus" aria-hidden="true">
+        <!-- tự vẽ: emoji 🪷 không có trên Windows 10 -->
+        <svg width="64" height="44" viewBox="0 0 64 44">
+          <path d="M32 4 C40 14 40 28 32 38 C24 28 24 14 32 4Z" fill="#e88a9a"/>
+          <path d="M32 38 C22 34 14 24 14 12 C24 16 30 26 32 38Z" fill="#d9677c"/>
+          <path d="M32 38 C42 34 50 24 50 12 C40 16 34 26 32 38Z" fill="#d9677c"/>
+          <path d="M32 38 C20 40 8 34 2 24 C14 22 26 30 32 38Z" fill="#c4566b"/>
+          <path d="M32 38 C44 40 56 34 62 24 C50 22 38 30 32 38Z" fill="#c4566b"/>
+          <ellipse cx="32" cy="40" rx="16" ry="3" fill="#4c8a3c"/>
+        </svg>
+      </div>
       <h1>Khẩu Xà Tâm Phật</h1>
       <p class="sub">Đi chùa trực tuyến — tâm an là đủ</p>
       <form id="name-form" autocomplete="off">
@@ -63,6 +91,16 @@
         <span id="sutra-status"></span>
         <button id="sutra-check" class="primary">Kiểm tra</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Thọ trai: chọn món -->
+  <div id="food" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="food-close" aria-label="Đóng">✕</button>
+      <h2>Thọ trai</h2>
+      <p class="sub">Chọn một món chay — ngồi ăn trong 10 giây</p>
+      <div id="food-list" class="food-list"></div>
     </div>
   </div>
 

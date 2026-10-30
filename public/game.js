@@ -21,6 +21,18 @@
   const STATUE_TOP = STATUE_BASE - (STATUE_BASE - 64) * STATUE_SCALE;
   const OBSTACLES = PILLARS.map(function (p) { return { x: p.x, y: p.y - 6, r: 30 }; })
     .concat([{ x: URN.x, y: URN.y - 6, r: 38 }]);
+  const EAT_MS = 10000;
+  const LOTUS_MS = 10000; // hoa sen trên đầu sau khi chép kinh xong
+  const FOODS = [
+    { id: 'com', emoji: '🍚', name: 'Cơm chay' },
+    { id: 'pho', emoji: '🍜', name: 'Phở chay' },
+    { id: 'xoi', emoji: '🍙', name: 'Xôi' },
+    { id: 'banhbao', emoji: '🥟', name: 'Bánh bao chay' },
+    { id: 'chuoi', emoji: '🍌', name: 'Chuối' },
+    { id: 'cam', emoji: '🍊', name: 'Cam' },
+    { id: 'dao', emoji: '🍑', name: 'Đào tiên' },
+    { id: 'tra', emoji: '🍵', name: 'Trà sen' },
+  ];
   const CUSHIONS = [];
   [600, 700].forEach(function (y) {
     [520, 610, 790, 880].forEach(function (x) { CUSHIONS.push({ x: x, y: y }); });
@@ -101,7 +113,8 @@
     return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
   }
   function overlayOpen() {
-    return !$('sutra').classList.contains('hidden') || !$('welcome').classList.contains('hidden');
+    return !$('sutra').classList.contains('hidden') || !$('welcome').classList.contains('hidden') ||
+      !$('food').classList.contains('hidden');
   }
 
   window.addEventListener('keydown', function (e) {
@@ -122,6 +135,7 @@
     else if (k === '2') setPose('sit');
     else if (k === '3') setPose('kneel');
     else if (k === '4') setPose('bow');
+    else if (k === '5') openFood();
   });
   window.addEventListener('keyup', function (e) { keys.delete(e.key.toLowerCase()); });
   window.addEventListener('blur', function () { keys.clear(); });
@@ -146,7 +160,26 @@
     document.querySelectorAll('[data-pose]').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-pose') === pose);
     });
+    $('btn-eat').classList.toggle('active', pose === 'eat');
   }
+
+  // ---------- Thọ trai ----------
+  FOODS.forEach(function (f) {
+    const b = document.createElement('button');
+    b.innerHTML = '<span class="emoji"></span><span></span>';
+    b.firstChild.textContent = f.emoji;
+    b.lastChild.textContent = f.name;
+    b.addEventListener('click', function () {
+      $('food').classList.add('hidden');
+      me.food = f.id;
+      me.eatUntil = Date.now() + EAT_MS;
+      setPose('eat');
+    });
+    $('food-list').appendChild(b);
+  });
+  function openFood() { $('food').classList.remove('hidden'); }
+  $('btn-eat').addEventListener('click', openFood);
+  $('food-close').addEventListener('click', function () { $('food').classList.add('hidden'); });
 
   // ---------- Chat ----------
   $('chat-form').addEventListener('submit', function (e) {
@@ -207,7 +240,7 @@
         else others.set(p.id, Object.assign({ rx: p.x, ry: p.y, seed: hash(p.id) }, p));
       });
       others.forEach(function (_, id) { if (!seen.has(id)) others.delete(id); });
-      $('online').textContent = '👥 ' + (others.size + 1);
+      $('online-count').textContent = others.size + 1;
     });
     es.addEventListener('chat', function (ev) {
       const c = JSON.parse(ev.data);
@@ -229,6 +262,8 @@
       id: me.id, name: me.name,
       x: Math.round(me.x), y: Math.round(me.y),
       dir: me.dir, pose: me.pose, days: me.days,
+      food: me.pose === 'eat' ? me.food : undefined,
+      lotus: Date.now() < (me.lotusUntil || 0),
     };
     const s = JSON.stringify(payload);
     if (s === lastSent && now - lastSentAt < 3000) return;
@@ -265,7 +300,7 @@
     bgm.pause();
     synth.stop();
   }
-  function updateMusicBtn() { $('btn-music').textContent = musicOn ? '🔊' : '🔇'; }
+  function updateMusicBtn() { $('btn-music').classList.toggle('muted', !musicOn); }
   $('btn-music').addEventListener('click', function () {
     if (musicOn) { stopMusic(); store.set(K.music, 'off'); }
     else { synth.unlock(); startMusic(); store.set(K.music, 'on'); }
@@ -402,6 +437,7 @@
       store.del(K.draft);
       me.days = days;
       lastSent = '';
+      me.lotusUntil = Date.now() + LOTUS_MS;
       setStatus('🙏 Viên mãn! Bạn đã hoàn thành ' + days + ' ngày chép kinh.', 'ok');
       sutraInput.disabled = true;
       $('sutra-check').disabled = true;
@@ -490,10 +526,12 @@
       if (Math.abs(vx) > 0.1) me.dir = vx > 0 ? 1 : -1;
       if (me.pose !== 'walk') {
         me.pose = 'walk';
-        document.querySelectorAll('[data-pose]').forEach(function (b) { b.classList.remove('active'); });
+        document.querySelectorAll('[data-pose], #btn-eat').forEach(function (b) { b.classList.remove('active'); });
       }
     } else if (me.pose === 'walk') {
       setPose('stand');
+    } else if (me.pose === 'eat' && Date.now() >= me.eatUntil) {
+      setPose('sit'); // ăn xong vẫn ngồi
     }
 
     const k = Math.min(1, dt * 10);
@@ -844,7 +882,6 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(0, 0, 24, 9, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    const dir = p.dir || 1;
     let topOfHead;
 
     if (p.pose === 'sit') {
@@ -855,16 +892,41 @@
       ctx.beginPath(); ctx.ellipse(0, -14, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
       head(-58);
       topOfHead = -71;
-    } else if (p.pose === 'kneel' || p.pose === 'bow') {
+    } else if (p.pose === 'eat') {
+      // ngồi, cứ ~2 giây đưa món lên miệng một lần
+      ctx.fillStyle = ROBE_DARK;
+      ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
+      torso(-46, -10, p.days);
+      const ph = ((t + (p.seed || 0) * 2000) % 2000) / 2000;
+      const lift = ph < 0.25 ? ph / 0.25 : ph < 0.45 ? 1 : ph < 0.7 ? 1 - (ph - 0.45) / 0.25 : 0;
+      const fy = -16 - lift * 24;
+      const food = FOODS.find(function (f) { return f.id === p.food; }) || FOODS[0];
+      ctx.fillStyle = SKIN;
+      ctx.beginPath(); ctx.ellipse(0, fy + 6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(food.emoji, 0, fy);
+      head(-58);
+      topOfHead = -71;
+    } else if (p.pose === 'kneel') {
+      // Nhìn thẳng (hướng về tượng): quỳ thẳng lưng, cẳng chân gập dưới thân.
+      ctx.fillStyle = ROBE_DARK;
+      ctx.beginPath(); ctx.ellipse(0, -6, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
+      torso(-46, -8, p.days);
+      // tay chắp trước ngực
+      ctx.fillStyle = SKIN;
+      ctx.beginPath(); ctx.ellipse(0, -32, 4, 7, 0, 0, Math.PI * 2); ctx.fill();
+      head(-58);
+      topOfHead = -71;
+    } else if (p.pose === 'bow') {
+      const dir = p.dir || 1;
       // cẳng chân gập phía sau
       ctx.fillStyle = ROBE_DARK;
       ctx.beginPath(); ctx.ellipse(-dir * 8, -6, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
-      let a = 0;
-      if (p.pose === 'bow') {
-        const ph = ((t + (p.seed || 0) * 3000) % 3200) / 3200;
-        const bend = ph < 0.35 ? ph / 0.35 : ph < 0.65 ? 1 : 1 - (ph - 0.65) / 0.35;
-        a = dir * bend * 1.25;
-      }
+      const ph = ((t + (p.seed || 0) * 3000) % 3200) / 3200;
+      const bend = ph < 0.35 ? ph / 0.35 : ph < 0.65 ? 1 : 1 - (ph - 0.65) / 0.35;
+      const a = dir * bend * 1.25;
       ctx.save();
       ctx.translate(0, -12);
       ctx.rotate(a);
@@ -896,10 +958,10 @@
   }
 
   function drawLabel(name, x, y) {
-    ctx.font = '10px sans-serif';
+    ctx.font = '8px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(30,15,5,.85)';
     ctx.strokeText(name, x, y);
     ctx.fillStyle = '#f5d98b';
@@ -928,6 +990,29 @@
       out.push(l);
     });
     return out;
+  }
+
+  // Hoa sen (cùng hình với bông sen ở màn chào), tâm đáy tại (x, y), nhấp nhô + toả sáng nhẹ.
+  const LOTUS_PETALS = window.Path2D ? [
+    ['#e88a9a', new Path2D('M32 4 C40 14 40 28 32 38 C24 28 24 14 32 4Z')],
+    ['#d9677c', new Path2D('M32 38 C22 34 14 24 14 12 C24 16 30 26 32 38Z')],
+    ['#d9677c', new Path2D('M32 38 C42 34 50 24 50 12 C40 16 34 26 32 38Z')],
+    ['#c4566b', new Path2D('M32 38 C20 40 8 34 2 24 C14 22 26 30 32 38Z')],
+    ['#c4566b', new Path2D('M32 38 C44 40 56 34 62 24 C50 22 38 30 32 38Z')],
+  ] : [];
+  function drawLotus(x, y, t) {
+    const by = y + Math.sin(t / 400) * 1.5;
+    const g = ctx.createRadialGradient(x, by - 8, 2, x, by - 8, 18);
+    g.addColorStop(0, 'rgba(255,225,140,.55)');
+    g.addColorStop(1, 'rgba(255,225,140,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, by - 8, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(x, by);
+    ctx.scale(0.4, 0.4);
+    ctx.translate(-32, -40);
+    LOTUS_PETALS.forEach(function (p) { ctx.fillStyle = p[0]; ctx.fill(p[1]); });
+    ctx.restore();
   }
 
   function drawBubble(text, x, y, until) {
@@ -1000,9 +1085,12 @@
 
     // tên + bong bóng chat luôn nằm trên cùng
     actors.forEach(function (a) {
-      drawLabel(a.p.name, a.x, a.top - 4);
+      const lotus = a.isMe ? Date.now() < (me.lotusUntil || 0) : !!a.p.lotus;
+      let top = a.top;
+      if (lotus) { drawLotus(a.x, top - 9, now); top -= 20; }
+      drawLabel(a.p.name, a.x, top - 4);
       const b = bubbles.get(a.p.id);
-      if (b) drawBubble(b.text, a.x, a.top - 18, b.until);
+      if (b) drawBubble(b.text, a.x, top - 18, b.until);
     });
 
     requestAnimationFrame(frame);

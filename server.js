@@ -62,7 +62,7 @@ function getRoom(key) {
   return room;
 }
 
-const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow'];
+const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow', 'eat'];
 
 function clampNum(v, min, max, def) {
   v = Number(v);
@@ -146,6 +146,8 @@ function handleState(req, res) {
       dir: b.dir === -1 ? -1 : 1,
       pose: POSES.indexOf(b.pose) >= 0 ? b.pose : 'stand',
       days: Math.floor(clampNum(b.days, 0, 100000, 0)),
+      food: typeof b.food === 'string' && /^[a-z]{1,12}$/.test(b.food) ? b.food : undefined,
+      lotus: b.lotus === true,
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
     });
@@ -245,7 +247,7 @@ setInterval(function () {
     if (room.clients.size === 0 && room.players.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
-      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days });
+      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, food: p.food, lotus: p.lotus });
     });
     const msg = 'event: snapshot\ndata: ' + JSON.stringify(list) + '\n\n';
     if (msg === room.lastSnapshot && now - room.lastSnapshotAt < 2000) return;

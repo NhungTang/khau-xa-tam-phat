@@ -235,6 +235,7 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
 
 #toast {
   position: fixed;
+  z-index: 30;             /* nằm trên các popup */
   left: 50%;
   bottom: 120px;
   transform: translateX(-50%);
@@ -269,7 +270,12 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   #chat-form { min-width: 0; width: 100%; }
 }
 #repent .quiz-choices .primary,
-#review .quiz-choices .primary { margin-top: 0; }
+#review .quiz-choices .primary,
+#steal .quiz-choices .primary,
+#confirm .quiz-choices .primary { margin-top: 0; }
+.steal-panel { margin: 0 0 12px; }
+.steal-note { margin: 0 0 10px; text-align: center; font-size: 13px; opacity: .75; }
+.steal-title { margin: 0 0 6px; text-align: center; }
 select {
   font: inherit;
   width: 100%;
@@ -318,8 +324,45 @@ select {
 }
 #shop .card { max-height: 90vh; overflow-y: auto; }
 #inv-list { max-height: 30vh; overflow-y: auto; }
+.rack-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.music-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.music-item { text-align: left; padding: 10px 12px; }
+.music-item.active { background: var(--gold); color: var(--ink); font-weight: 700; }
+.music-missing { font-size: 12px; opacity: .7; font-weight: 400; }
+.music-credit { display: block; font-size: 11px; opacity: .65; font-weight: 400; margin-top: 2px; }
+.rack-foot { margin: 12px 0 4px; text-align: center; font-size: 14px; }
+.card .rack-note { margin: 0; font-style: italic; }
+.rack-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  min-width: 0;            /* cho phép tên dài bị cắt bằng … trong lưới */
+  padding: 3px;
+  font-size: 11px;
+  border-radius: 8px;
+  background: #efe3c7;
+  color: #8a7a5e;
+  border: 1px dashed #c9b48a;
+}
+.rack-cell.taken { background: #fff6e2; color: var(--ink); border-style: solid; }
+.rack-cell.mine { background: #e8b64c; color: var(--ink); border-style: solid; font-weight: 700; }
+.rack-cell .emoji { font-size: 20px; line-height: 1.1; }
+.rack-cell .owner { display: block; width: 100%; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shop-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px; }
 .shop-item .emoji { font-size: 28px; }
+.shoe-ic { display: inline-flex; }
+.shoe-ic svg { width: 40px; height: 27px; }
+.inv-ic { font-size: 18px; vertical-align: middle; }
+.inv-ic.shoe-ic svg { width: 30px; height: 20px; vertical-align: middle; }
+.rack-cell .shoe-ic svg { width: 30px; height: 20px; }
 .shop-item .price { font-size: 13px; opacity: .8; }
 .shop-item:disabled { opacity: .45; cursor: not-allowed; }
 .card .gender { display: flex; gap: 20px; justify-content: center; margin-top: 10px; }
@@ -329,3 +372,8 @@ select {
 /* Popup review rộng hơn */
 #myreviews .card { max-width: 640px; }
 #rv .card { max-width: 520px; }
+
+/* Điện thoại: kệ dép 6 cột (đặt sau quy tắc .rack-grid chính để không bị đè) */
+@media (max-width: 600px) {
+  .rack-grid { grid-template-columns: repeat(6, 1fr); }
+}

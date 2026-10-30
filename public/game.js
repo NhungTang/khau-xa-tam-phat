@@ -60,6 +60,10 @@
     // bạn đồng hành
     { id: 'cat', emoji: '🐈', name: 'Mèo chùa', price: 12, slot: 'pet' },
     { id: 'bird', emoji: '🐦', name: 'Chim sẻ', price: 8, slot: 'pet' },
+    // dép (để ở kệ ngoài cửa chùa) — rẻ đến đắt
+    { id: 'deptoong', emoji: '👡', name: 'Dép tổ ong', price: 2, slot: 'feet' },
+    { id: 'depda', emoji: '👞', name: 'Dép Lào Thái', price: 10, slot: 'feet' },
+    { id: 'haivang', emoji: '🥿', name: 'Dép Gucci', price: 25, slot: 'feet' },
   ];
   // Màu áo [chính, viền, chữ số điểm] theo áo đang mặc.
   const ROBE_STYLES = {
@@ -67,6 +71,35 @@
     robebrown: ['#7a4a24', '#5a3418', '#ffffff'],
     robewhite: ['#eeeae0', '#b9b2a0', '#5a4a3a'],
   };
+  // Icon vẽ riêng cho dép: càng đắt trông càng sang (emoji không phân biệt được).
+  const SHOE_ICONS = {
+    // dép tổ ong: nhựa xanh nhạt, quai lỗ chỗ
+    deptoong: '<svg viewBox="0 0 48 32" aria-hidden="true"><path d="M3 24q0-6 8-6h28q6 0 6 6t-6 5H9q-6 0-6-5z" fill="#7cc6ec"/>' +
+      '<path d="M13 18q1-10 13-10t13 10z" fill="#a9dcf5" stroke="#6bb3da" stroke-width="1.2"/>' +
+      '<g fill="#6bb3da"><circle cx="19" cy="14" r="1.3"/><circle cx="24" cy="12" r="1.3"/><circle cx="29" cy="12" r="1.3"/>' +
+      '<circle cx="34" cy="15" r="1.3"/><circle cx="22" cy="16" r="1.3"/><circle cx="27" cy="15.5" r="1.3"/><circle cx="31" cy="17" r="1.3"/></g></svg>',
+    // dép Lào Thái: xỏ ngón, đế nâu nhiều lớp, quai đỏ
+    depda: '<svg viewBox="0 0 48 32" aria-hidden="true"><path d="M3 23q0-4 7-4h30q6 0 6 4v3q0 4-6 4H9q-6 0-6-4z" fill="#3a2a20"/>' +
+      '<path d="M4 24.5h41" stroke="#f2ece2" stroke-width="1.6"/><path d="M4 27.5h41" stroke="#8a5a2b" stroke-width="1.2"/>' +
+      '<path d="M15 20q4-11 10-12q6 1 11 12" fill="none" stroke="#c0392b" stroke-width="3.2" stroke-linecap="round"/>' +
+      '<circle cx="25" cy="8.5" r="2.2" fill="#e8b64c"/></svg>',
+    // dép Gucci: quai ngang đen bóng, sọc xanh–đỏ–xanh, viền vàng, lấp lánh
+    haivang: '<svg viewBox="0 0 48 32" aria-hidden="true"><path d="M3 24q0-5 7-5h30q6 0 6 5t-6 5H9q-6 0-6-5z" fill="#111"/>' +
+      '<path d="M5 26h39" stroke="#d4a017" stroke-width="1.4"/>' +
+      '<path d="M11 19q0-9 14-9t14 9z" fill="#1d1d1f" stroke="#d4a017" stroke-width="1.4"/>' +
+      '<path d="M12.5 16.5q12-5 25 0" stroke="#1f8a4c" stroke-width="2.6" fill="none"/>' +
+      '<path d="M12.2 14.3q12.8-5.4 25.6 0" stroke="#c0392b" stroke-width="2.2" fill="none" transform="translate(0 2)"/>' +
+      '<path d="M12.5 12.4q12-5 25 0" stroke="#1f8a4c" stroke-width="2.6" fill="none" transform="translate(0 2)"/>' +
+      '<path d="M41 4l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#f5d98b"/><circle cx="7" cy="9" r="1.2" fill="#f5d98b"/></svg>',
+  };
+  // Phần tử icon của vật phẩm: dép dùng SVG vẽ riêng, món khác dùng emoji.
+  function itemIcon(it, cls) {
+    const s = document.createElement('span');
+    s.className = cls || 'emoji';
+    if (it && SHOE_ICONS[it.id]) { s.classList.add('shoe-ic'); s.innerHTML = SHOE_ICONS[it.id]; }
+    else s.textContent = it ? it.emoji : '👡';
+    return s;
+  }
   const ITEM_BY_ID = new Map(ITEMS.map(function (it) { return [it.id, it]; }));
   const CUSHIONS = [];
   [600, 700].forEach(function (y) {
@@ -129,8 +162,10 @@
     worn: 'kxtp_worn',
     stress: 'kxtp_stress',
     salary: 'kxtp_salary',
+    stealDate: 'kxtp_steal_date',
     draft: 'kxtp_draft',
     music: 'kxtp_music',
+    track: 'kxtp_track',
     officeName: 'kxtp_office_name',
     gender: 'kxtp_gender',
   };
@@ -158,6 +193,16 @@
   const worn = loadJson(K.worn); // slot → itemId
   Object.keys(inv).forEach(function (id) { if (!ITEM_BY_ID.has(id) || !(inv[id] > 0)) delete inv[id]; });
   Object.keys(worn).forEach(function (s) { if (!inv[worn[s]]) delete worn[s]; });
+  // Luôn có ít nhất một đôi dép: chưa có đôi nào thì tặng một đôi dép tổ ong.
+  function shoeCount() {
+    return ITEMS.reduce(function (n, it) { return it.slot === 'feet' ? n + (inv[it.id] || 0) : n; }, 0);
+  }
+  if (shoeCount() === 0) {
+    inv.deptoong = 1;
+    worn.feet = 'deptoong';
+    store.set(K.inv, JSON.stringify(inv));
+    store.set(K.worn, JSON.stringify(worn));
+  }
 
   // ---------- Trạng thái ----------
   const me = {
@@ -183,6 +228,7 @@
   let bossCaughtMe = false;     // mỗi lượt đi tuần chỉ bắt một lần
   let offerings = [];           // lễ vật trên bàn thờ (server gửi xuống)
   let myReviews = [];           // review đồng nghiệp viết về mình (server gửi xuống)
+  let rack = [];                // kệ dép ngoài cửa chùa (server gửi xuống)
   let started = false;
   let scene = 'temple'; // 'temple' | 'office'
   let templeName = DEFAULT_NAME;
@@ -219,6 +265,7 @@
     updateMusicBtn();
     connect();
     nameInput.blur();
+    askShoes();
   });
 
   // ---------- Điều khiển ----------
@@ -389,6 +436,20 @@
     });
     es.addEventListener('offerings', function (ev) { offerings = JSON.parse(ev.data); });
     es.addEventListener('reviews', function (ev) { onReviews(JSON.parse(ev.data)); });
+    es.addEventListener('rack', function (ev) {
+      rack = JSON.parse(ev.data);
+      if (!$('rack').classList.contains('hidden')) renderRack();
+    });
+    es.addEventListener('shoe-stolen', function (ev) {
+      const s = JSON.parse(ev.data);
+      const it = ITEM_BY_ID.get(s.shoe);
+      const got = ITEM_BY_ID.get(s.got);
+      if (got) { inv[got.id] = (inv[got.id] || 0) + 1; worn.feet = got.id; } // nhận lại đôi của người lấy
+      if (it && inv[it.id] > 0) removeOne(it.id); else saveInv();
+      const shoeName = function (x) { return x.name.replace(/^Dép /, ''); }; // "Dép Gucci" → "Gucci"
+      toast('😱 Đôi ' + (it ? shoeName(it) : 'dép') + ' của bạn đã bị lấy mất' +
+        (got ? ', ai đó để lại một đôi ' + shoeName(got) + '.' : '.'), 7000);
+    });
     es.addEventListener('gift', function (ev) {
       const g = JSON.parse(ev.data);
       const it = ITEM_BY_ID.get(g.item);
@@ -437,7 +498,9 @@
 
   // ---------- Đi làm / đi chùa ----------
   function switchScene(next) {
+    if (scene === 'temple' && myRackSlot() >= 0) toast('👡 Đã xỏ lại dép ở kệ.');
     scene = next;
+    rack = [];
     document.body.classList.toggle('office', next === 'office');
     $('brand').textContent = next === 'office' ? '🏢 Đời là bể khổ' : '卍 Khẩu Xà Tâm Phật';
     if (es) es.close();
@@ -463,6 +526,7 @@
     lastSent = '';
     connect();
     if (musicOn) startMusic(); // đổi nhạc theo cảnh
+    if (next === 'temple') askShoes();
   }
 
   const officeInput = $('office-name-input');
@@ -937,11 +1001,34 @@
   $('offer-close').addEventListener('click', function () { $('offer').classList.add('hidden'); });
 
   // ---------- Nhạc nền ----------
+  // Bản thu âm có bản quyền nên không kèm sẵn: đặt file mp3 vào public/assets/ đúng tên bên dưới.
+  // Thiếu file thì tạm phát tiếng mõ + chuông tổng hợp.
+  // credit: bản thu có sẵn trong app — Kittisaro & Thanissara (Spirit Rock, 2004), dharmaseed.org,
+  // giấy phép CC BY-NC-ND 4.0 (phi thương mại, ghi nguồn, không chỉnh sửa).
+  const DHARMA_SEED = 'Kittisaro & Thanissara — Dharma Seed (CC BY-NC-ND 4.0)';
+  const TRACKS = [
+    { id: 'mochuong', name: 'Tiếng mõ & chuông', file: null },
+    { id: 'chudaibi', name: 'Chú Đại Bi', file: 'assets/chu-dai-bi.mp3', credit: DHARMA_SEED },
+    { id: 'thichca', name: 'Nam mô Bổn Sư Thích Ca Mâu Ni Phật', file: 'assets/nam-mo-thich-ca.mp3', credit: DHARMA_SEED },
+    { id: 'quanam', name: 'Nam mô Đại Bi Quán Thế Âm Bồ Tát', file: 'assets/nam-mo-quan-the-am.mp3', credit: DHARMA_SEED },
+    { id: 'lucTu', name: 'Án Ma Ni Bát Mê Hồng', file: 'assets/an-ma-ni-bat-me-hong.mp3', credit: DHARMA_SEED },
+    { id: 'tamchu', name: 'Bát Nhã Tâm Chú (Yết đế…)', file: 'assets/bat-nha-tam-chu.mp3', credit: DHARMA_SEED },
+  ];
+  // Mặc định: tiếng mõ & chuông (luôn có sẵn, không cần file).
+  let track = TRACKS.find(function (t) { return t.id === store.get(K.track); }) ||
+    TRACKS.find(function (t) { return !t.file; });
+  let trackPicked = false; // user vừa tự chọn bài → mới báo khi thiếu file
+  const missingTracks = new Set(); // bài chưa có file mp3
   let musicOn = false;
-  let useSynth = false;
   bgm.volume = 0.6;
+  function trackMissing(t) {
+    if (missingTracks.has(t.id)) return;
+    missingTracks.add(t.id);
+    if (trackPicked) toast('Chưa có file nhạc "' + t.name + '" (' + t.file + ') — tạm phát tiếng mõ & chuông.', 6000);
+    if (!$('music').classList.contains('hidden')) renderMusic();
+  }
   bgm.addEventListener('error', function () {
-    useSynth = true;
+    trackMissing(track);
     if (musicOn && scene === 'temple') synth.start('temple');
   });
 
@@ -949,12 +1036,13 @@
     musicOn = true;
     if (scene === 'office') { bgm.pause(); synth.start('office'); return; } // nhạc căng thẳng
     synth.stop();
-    if (useSynth) { synth.start('temple'); return; }
+    if (!track.file || missingTracks.has(track.id)) { bgm.pause(); synth.start('temple'); return; }
+    if (bgm.getAttribute('src') !== track.file) bgm.setAttribute('src', track.file);
     const p = bgm.play();
     if (p && p.catch) {
       p.catch(function (err) {
         if (err && err.name === 'NotAllowedError') return;
-        useSynth = true;
+        trackMissing(track);
         if (musicOn && scene === 'temple') synth.start('temple');
       });
     }
@@ -965,11 +1053,55 @@
     synth.stop();
   }
   function updateMusicBtn() { $('btn-music').classList.toggle('muted', !musicOn); }
-  $('btn-music').addEventListener('click', function () {
-    if (musicOn) { stopMusic(); store.set(K.music, 'off'); }
-    else { synth.unlock(); startMusic(); store.set(K.music, 'on'); }
+  function setMusic(on) {
+    if (on) { synth.unlock(); startMusic(); } else stopMusic();
+    store.set(K.music, on ? 'on' : 'off');
     updateMusicBtn();
+  }
+
+  // Popup chọn nhạc nền
+  function renderMusic() {
+    $('music-toggle').textContent = musicOn ? '🔇 Tắt nhạc' : '🔊 Bật nhạc';
+    $('music-note').textContent = scene === 'office'
+      ? 'Ở văn phòng chỉ có nhạc văn phòng — về chùa mới chọn được bài khác.'
+      : '';
+    const list = $('music-list');
+    list.textContent = '';
+    if (scene === 'office') return; // văn phòng: không cho chọn bài
+    TRACKS.forEach(function (t) {
+      const b = document.createElement('button');
+      b.className = 'music-item' + (t === track ? ' active' : '');
+      b.textContent = (t === track ? '▶ ' : '🎵 ') + t.name;
+      if (t.credit) {
+        const cr = document.createElement('span');
+        cr.className = 'music-credit';
+        cr.textContent = t.credit;
+        b.appendChild(cr);
+      }
+      if (missingTracks.has(t.id)) {
+        const s = document.createElement('span');
+        s.className = 'music-missing';
+        s.textContent = ' (chưa có file)';
+        b.appendChild(s);
+      }
+      b.addEventListener('click', function () {
+        track = t;
+        trackPicked = true;
+        store.set(K.track, t.id);
+        bgm.pause();
+        setMusic(true);
+        renderMusic();
+      });
+      list.appendChild(b);
+    });
+  }
+  $('btn-music').addEventListener('click', function () {
+    renderMusic();
+    $('music').classList.remove('hidden');
+    keys.clear();
   });
+  $('music-toggle').addEventListener('click', function () { setMusic(!musicOn); renderMusic(); });
+  $('music-close').addEventListener('click', function () { $('music').classList.add('hidden'); });
 
   // Dự phòng khi chưa có file chu-dai-bi.mp3: tiếng mõ + chuông tổng hợp.
   const synth = (function () {
@@ -1138,6 +1270,16 @@
     me.wear = Object.values(worn);
     lastSent = '';
     if (!$('shop').classList.contains('hidden')) renderShop();
+    syncRackShoe();
+  }
+  // Dép trên kệ luôn là đôi đang mang.
+  function syncRackShoe() {
+    const slot = myRackSlot();
+    const shoe = myShoe();
+    if (slot < 0 || !shoe || rack[slot].shoe === shoe.id) return;
+    rack[slot].shoe = shoe.id;
+    post('/api/shoes/wear', { id: me.id, shoe: shoe.id });
+    if (!$('rack').classList.contains('hidden')) renderRack();
   }
   function updatePointsUI() {
     $('points').textContent = getPoints();
@@ -1158,7 +1300,8 @@
       const b = document.createElement('button');
       b.className = 'shop-item';
       b.disabled = pts < it.price;
-      [['emoji', it.emoji], ['', it.name], ['price', it.price + ' điểm']].forEach(function (x) {
+      b.appendChild(itemIcon(it));
+      [['', it.name], ['price', it.price + ' điểm']].forEach(function (x) {
         const s = document.createElement('span');
         s.className = x[0];
         s.textContent = x[1];
@@ -1168,8 +1311,11 @@
         if (getPoints() < it.price) return;
         setPoints(getPoints() - it.price);
         inv[it.id] = (inv[it.id] || 0) + 1;
+        const cur = myShoe();
+        const upgrade = it.slot === 'feet' && (!cur || it.price > cur.price);
+        if (upgrade) worn.feet = it.id; // dép xịn hơn → mang luôn (kệ dép tự đổi theo)
         saveInv();
-        toast('Đã đổi ' + it.emoji + ' ' + it.name + '.');
+        toast('Đã đổi ' + it.emoji + ' ' + it.name + '.' + (upgrade ? ' Bạn đã mang đôi mới.' : ''));
       });
       grid.appendChild(b);
     });
@@ -1189,20 +1335,31 @@
       row.className = 'task-row';
       const info = document.createElement('div');
       info.className = 'task-info';
-      info.textContent = it.emoji + ' ' + it.name + ' ×' + inv[it.id];
+      info.appendChild(itemIcon(it, 'inv-ic'));
+      info.appendChild(document.createTextNode(' ' + it.name + ' ×' + inv[it.id]));
       row.appendChild(info);
       const wearing = worn[it.slot] === it.id;
       const btns = [
         [wearing ? 'Cởi' : 'Mặc', wearing ? '' : 'primary', function () {
+          if (wearing && it.slot === 'feet' && shoeCount() <= 1) { toast('Bạn chỉ có 1 đôi dép, không cởi được.'); return; }
           if (wearing) delete worn[it.slot];
           else worn[it.slot] = it.id;
           saveInv();
         }],
         ['Tặng', '', function () { giftItem(it); }],
         ['Xóa', '', function () {
-          if (window.confirm('Xóa 1 ' + it.name + '?')) removeOne(it.id);
+          if (shoeLocked(it)) { toast(shoeLocked(it)); return; }
+          confirmBox('Xóa 1 ' + it.emoji + ' ' + it.name + ' khỏi túi đồ?', 'Xóa', function () { removeOne(it.id); });
         }],
       ];
+      // Đôi dép duy nhất: không cởi / tặng / xóa được → ẩn hết nút.
+      if (it.slot === 'feet' && shoeCount() <= 1) {
+        btns.length = 0;
+        const tag = document.createElement('span');
+        tag.className = 'task-from';
+        tag.textContent = 'đang mang';
+        row.appendChild(tag);
+      }
       btns.forEach(function (x) {
         const b = document.createElement('button');
         b.textContent = x[0];
@@ -1214,7 +1371,35 @@
     });
   }
 
+  // Không cho tặng / xoá: đôi đang để trên kệ, hoặc đôi dép cuối cùng.
+  function shoeLocked(it) {
+    if (it.slot !== 'feet') return '';
+    if (shoeCount() <= 1) return 'Bạn phải luôn có ít nhất 1 đôi dép.';
+    const slot = myRackSlot();
+    if (slot >= 0 && rack[slot].shoe === it.id && inv[it.id] <= 1) return 'Đôi dép này đang để ở kệ ngoài cửa chùa.';
+    return '';
+  }
+  // Popup xác nhận dùng chung (thay cho window.confirm).
+  let confirmAction = null;
+  function confirmBox(text, okLabel, onOk) {
+    $('confirm-text').textContent = text;
+    $('confirm-ok').textContent = okLabel || 'Đồng ý';
+    confirmAction = onOk;
+    $('confirm').classList.remove('hidden');
+  }
+  $('confirm-ok').addEventListener('click', function () {
+    $('confirm').classList.add('hidden');
+    const f = confirmAction;
+    confirmAction = null;
+    if (f) f();
+  });
+  $('confirm-cancel').addEventListener('click', function () {
+    confirmAction = null;
+    $('confirm').classList.add('hidden');
+  });
+
   function giftItem(it) {
+    if (shoeLocked(it)) { toast(shoeLocked(it)); return; }
     if (others.size === 0) { toast('Chưa có ai khác đang online ở đây.'); return; }
     pickColleague('Tặng ' + it.name + ' cho ai?', 'Người đang online cùng chỗ với bạn', Array.from(others.keys()), function (id, name) {
       post('/api/gift', { id: me.id, target: id, item: it.id, scene: scene }).then(function (r) {
@@ -1234,6 +1419,161 @@
     keys.clear();
   });
   $('shop-close').addEventListener('click', function () { $('shop').classList.add('hidden'); });
+
+  // ---------- Kệ dép ngoài cửa chùa ----------
+  const RACK_SIZE = 60;
+  function myRackSlot() {
+    return rack.findIndex(function (s) { return s && s.owner === me.id; });
+  }
+  // Đôi dép đang mang: đôi đã chọn "Mặc", nếu chưa chọn thì đôi xịn nhất đang có.
+  function myShoe() {
+    if (worn.feet && inv[worn.feet] > 0) return ITEM_BY_ID.get(worn.feet);
+    const own = ITEMS.filter(function (it) { return it.slot === 'feet' && inv[it.id] > 0; });
+    return own.length ? own[own.length - 1] : null;
+  }
+  let mustPlace = false;
+  function askShoes() {
+    if (!online) return;
+    const shoe = myShoe();
+    if (!shoe) { toast('Bạn không có dép — đi chân đất vào chùa.'); return; }
+    mustPlace = true;
+    renderRack();
+    $('rack').classList.remove('hidden');
+    keys.clear();
+    // Không kết nối được server thì đừng giữ chân user ở kệ dép.
+    setTimeout(function () {
+      if (mustPlace && !rack.length) {
+        mustPlace = false;
+        if (!$('rack').classList.contains('hidden')) renderRack();
+      }
+    }, 5000);
+  }
+
+  function renderRack() {
+    if (!pendingSteal) $('steal').classList.add('hidden');
+    const mine = myRackSlot();
+    if (mine >= 0) mustPlace = false;
+    const shoe = myShoe();
+    $('rack-sub').textContent = mustPlace
+      ? 'Vui lòng để dép bên ngoài khi vào chùa. Bạn đang có một đôi ' + (shoe ? shoe.name.toLowerCase() : 'dép') + '. Chọn một ô trống — nếu không chọn, dép sẽ được để vào một ô bất kỳ.'
+      : (mine >= 0 ? 'Dép của bạn ở ô ' + (mine + 1) + '.' : 'Bạn đang đi chân đất.');
+    const grid = $('rack-grid');
+    grid.textContent = '';
+    for (let i = 0; i < RACK_SIZE; i++) {
+      const s = rack[i];
+      const cell = document.createElement('button');
+      cell.className = 'rack-cell' + (s ? (s.owner === me.id ? ' mine' : ' taken') : '');
+      if (s) {
+        const it = ITEM_BY_ID.get(s.shoe);
+        const e = itemIcon(it);
+        const n = document.createElement('span');
+        n.className = 'owner';
+        n.textContent = s.name;
+        cell.appendChild(e);
+        cell.appendChild(n);
+        cell.title = (it ? it.name : 'Dép') + ' của ' + s.name + (s.owner === me.id ? ' (bạn)' : '');
+      } else {
+        cell.textContent = String(i + 1);
+      }
+      cell.addEventListener('click', function () { onRackCell(i); });
+      grid.appendChild(cell);
+    }
+  }
+
+  function onRackCell(i) {
+    const s = rack[i];
+    if (!s) {
+      const shoe = myShoe();
+      if (myRackSlot() >= 0 || !shoe) return;
+      post('/api/shoes/place', { id: me.id, slot: i, shoe: shoe.id }).then(function (r) {
+        if (r && r.ok) {
+          // Hiện ngay đôi dép + tên mình ở ô vừa chọn (server cũng gửi kệ mới cho mọi người).
+          rack[i] = { owner: me.id, name: me.name, shoe: shoe.id };
+          mustPlace = false;
+          renderRack();
+          toast('👡 Đã để ' + shoe.name.toLowerCase() + ' ở ô ' + (i + 1) + '. Mời vào chùa!');
+        } else {
+          toast('Chưa để được dép (ô vừa có người để, hoặc mạng chậm) — thử lại nhé.');
+        }
+      });
+      return;
+    }
+    if (s.owner === me.id) return;
+    if (store.get(K.stealDate) === todayStr()) { toast('Hôm nay bạn đã dùng hết phước rồi, hãy đợi đến ngày mai.', 6000); return; }
+    const it = ITEM_BY_ID.get(s.shoe);
+    // Popup xác nhận kèm lời nhắc giới luật; chỉ lấy khi bấm "Vẫn cầm nhầm".
+    $('steal-text').textContent = 'Bạn sắp cầm nhầm đôi ' + (it ? it.name.replace(/^Dép /, '') : 'dép') + ' của ' + s.name + '.';
+    $('steal').classList.remove('hidden');
+    $('steal').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    pendingSteal = { i: i, s: s, it: it };
+  }
+
+  let pendingSteal = null;
+  $('steal-cancel').addEventListener('click', function () {
+    pendingSteal = null;
+    $('steal').classList.add('hidden');
+    toast('🙏 Lành thay! Không lấy của không cho là giữ giới.');
+  });
+  $('steal-ok').addEventListener('click', function () {
+    $('steal').classList.add('hidden');
+    if (pendingSteal) doSteal(pendingSteal.i, pendingSteal.s, pendingSteal.it);
+    pendingSteal = null;
+  });
+
+  function doSteal(i, s, it) {
+    // Chưa để dép lên kệ thì gửi kèm đôi đang mang để để lại ở ô kia.
+    const carried = myRackSlot() < 0 && myShoe() ? myShoe().id : undefined;
+    post('/api/shoes/steal', { id: me.id, slot: i, gave: carried }).then(function (r) {
+      if (r && r.ok) {
+        store.set(K.stealDate, todayStr());
+        return r.json().then(function (d) {
+          const gave = ITEM_BY_ID.get(d.gave);
+          if (it) { inv[it.id] = (inv[it.id] || 0) + 1; worn.feet = it.id; }
+          if (gave && inv[gave.id] > 0) removeOne(gave.id); else saveInv(); // đôi của mình để lại cho người kia
+          toast('Bạn đã lấy ' + (it ? it.emoji + ' ' + it.name : 'dép') + ' của ' + s.name +
+            (gave ? ', để lại ' + gave.emoji + ' ' + gave.name + ' cho họ.' : '.'));
+        });
+      } else if (r && r.status === 429) {
+        store.set(K.stealDate, todayStr());
+        toast('Hôm nay bạn đã dùng hết phước rồi, hãy đợi đến ngày mai.', 6000);
+      } else {
+        toast('Đôi dép đó vừa được chủ lấy đi rồi.');
+      }
+    });
+  }
+
+  $('btn-rack').addEventListener('click', function () {
+    renderRack();
+    $('rack').classList.remove('hidden');
+    keys.clear();
+  });
+  // Để dép vào một ô còn trống bất kỳ; ô vừa bị người khác chiếm thì thử ô trống khác.
+  function autoPlace(shoe, tries) {
+    const empty = [];
+    for (let k = 0; k < RACK_SIZE; k++) if (!rack[k]) empty.push(k);
+    if (!empty.length) { toast('Kệ dép đã kín chỗ — bạn cầm dép vào chùa vậy.'); return; }
+    const i = empty[Math.floor(Math.random() * empty.length)];
+    post('/api/shoes/place', { id: me.id, slot: i, shoe: shoe.id }).then(function (r) {
+      if (r && r.ok) {
+        rack[i] = { owner: me.id, name: me.name, shoe: shoe.id };
+        toast('👡 Đã để ' + shoe.name.toLowerCase() + ' ở ô ' + (i + 1) + '. Mời vào chùa!');
+      } else if (tries > 1) {
+        rack[i] = rack[i] || { owner: '', name: '', shoe: '' }; // đánh dấu ô này đã có người để
+        autoPlace(shoe, tries - 1);
+      }
+    });
+  }
+
+  $('rack-close').addEventListener('click', function () {
+    pendingSteal = null;
+    $('steal').classList.add('hidden');
+    $('rack').classList.add('hidden');
+    // Chưa để dép mà đóng kệ → tự để vào một ô trống bất kỳ (vào chùa vẫn phải để dép ở ngoài).
+    const shoe = myShoe();
+    if (!mustPlace || myRackSlot() >= 0 || !shoe) return;
+    mustPlace = false;
+    autoPlace(shoe, 3);
+  });
 
   // ---------- Câu hỏi sau khi chép kinh (chỉ mình user thấy) ----------
   const QUIZ_DELAY_MS = 30000;

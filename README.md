@@ -15,10 +15,14 @@ Không cần cài thư viện nào (Node ≥ 12).
 |---|---|
 | `PORT` | Cổng (mặc định `3000`) |
 
-## Nhạc nền Chú Đại Bi
+## Nhạc nền
 
-Đặt file nhạc vào `public/assets/chu-dai-bi.mp3` (bản thu có bản quyền nên không đi kèm).
-Nếu chưa có file, ứng dụng tự phát tiếng mõ + chuông tổng hợp để thay thế.
+Chọn bài bằng nút loa. Mặc định là tiếng mõ + chuông tổng hợp (không cần file).
+
+Các bản tụng có sẵn trong `public/assets/` là của **Kittisaro & Thanissara** (Spirit Rock Meditation
+Center, 2004), lấy từ [Dharma Seed](https://dharmaseed.org), giấy phép
+[CC BY-NC-ND 4.0](http://creativecommons.org/licenses/by-nc-nd/4.0/): chỉ dùng phi thương mại,
+phải ghi nguồn, không chỉnh sửa file. Danh sách chi tiết: `public/assets/README.txt`.
 
 ## Tính năng
 

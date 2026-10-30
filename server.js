@@ -20,6 +20,8 @@ const BOSS_GAP_MS = [45000, 90000];        // nghỉ 45–90 giây giữa hai l�
 const OFFERING_TTL_MS = 30 * 1000;         // lễ vật trên bàn thờ giữ 30 giây
 const MAX_OFFERINGS = 12;
 const OFFERING_IDS = ['nen', 'tra', 'hoa', 'den', 'qua'];
+const RACK_SIZE = 60;                      // kệ dép ngoài cửa chùa
+const SHOE_IDS = ['deptoong', 'depda', 'haivang'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -50,7 +52,8 @@ function roomKeyFor(req, scene) {
 function getRoom(key) {
   let room = rooms.get(key);
   if (!room) {
-    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [], reviews: new Map() };
+    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [], reviews: new Map(),
+      rack: new Array(RACK_SIZE).fill(null) };
     rooms.set(key, room);
   }
   return room;
@@ -122,12 +125,18 @@ function handleEvents(req, res, url) {
     if (bossActive(room, Date.now())) send(res, 'boss', { elapsed: Date.now() - room.boss.start, dur: room.boss.dur });
   } else {
     send(res, 'offerings', room.offerings);
+    send(res, 'rack', room.rack);
   }
   req.on('close', function () {
     if (room.clients.get(id) === res) {
       room.clients.delete(id);
       room.players.delete(id);
       broadcast(room, 'leave', { id: id });
+      const slot = room.rack.findIndex(function (s) { return s && s.owner === id; });
+      if (slot >= 0) {
+        room.rack[slot] = null;
+        broadcast(room, 'rack', room.rack);
+      }
     }
   });
 }
@@ -163,6 +172,7 @@ function handleState(req, res) {
       lastGift: prev.lastGift || 0,
       lastOffer: prev.lastOffer || 0,
       lastReview: prev.lastReview || 0,
+      stoleDay: prev.stoleDay || '',
     });
     json(res, 200, { ok: true });
   });
@@ -274,6 +284,68 @@ function handleOffer(req, res) {
     if (room.offerings.length > MAX_OFFERINGS) room.offerings.shift();
     broadcast(room, 'offerings', room.offerings);
     json(res, 200, { ok: true });
+  });
+}
+
+// ---------- Kệ dép ngoài cửa chùa ----------
+// Ai đang trong chùa thì có một ô dép; lấy dép người khác mỗi ngày một lần.
+// Lấy dép = đổi dép → ai cũng còn dép. Người lấy đã để dép trên kệ thì hai ô đổi dép cho nhau;
+// chưa để thì chỉ ô bị lấy đổi sang đôi người lấy đang mang (client gửi lên), còn người lấy đổi trong túi đồ.
+function handleShoePlace(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const slot = b && Number(b.slot);
+    const shoe = b && SHOE_IDS.indexOf(b.shoe) >= 0 ? b.shoe : null;
+    if (!id || !shoe || !(slot >= 0 && slot < RACK_SIZE && slot % 1 === 0)) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'temple'));
+    const p = room.players.get(id);
+    if (!p) return json(res, 409, { error: 'not connected' });
+    if (room.rack.some(function (s) { return s && s.owner === id; })) return json(res, 409, { error: 'already placed' });
+    if (room.rack[slot]) return json(res, 409, { error: 'slot taken' });
+    room.rack[slot] = { owner: id, name: p.name, shoe: shoe };
+    broadcast(room, 'rack', room.rack);
+    json(res, 200, { ok: true });
+  });
+}
+
+// Đổi đôi dép đang để trên kệ (vd. vừa mua đôi xịn hơn).
+function handleShoeWear(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const shoe = b && SHOE_IDS.indexOf(b.shoe) >= 0 ? b.shoe : null;
+    if (!id || !shoe) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'temple'));
+    const slot = room.rack.findIndex(function (s) { return s && s.owner === id; });
+    if (slot < 0) return json(res, 409, { error: 'not on rack' });
+    room.rack[slot].shoe = shoe;
+    broadcast(room, 'rack', room.rack);
+    json(res, 200, { ok: true });
+  });
+}
+
+function handleShoeSteal(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const slot = b && Number(b.slot);
+    if (!id || !(slot >= 0 && slot < RACK_SIZE)) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'temple'));
+    const p = room.players.get(id);
+    const s = room.rack[slot];
+    if (!p || !s || s.owner === id) return json(res, 409, { error: 'bad slot' });
+    const mine = room.rack.findIndex(function (x) { return x && x.owner === id; });
+    const carried = SHOE_IDS.indexOf(b.gave) >= 0 ? b.gave : null;
+    if (mine < 0 && !carried) return json(res, 400, { error: 'no shoes' });
+    const day = new Date().toISOString().slice(0, 10);
+    if (p.stoleDay === day) return json(res, 429, { error: 'once a day' });
+    p.stoleDay = day;
+    const stolen = s.shoe;
+    const gave = mine >= 0 ? room.rack[mine].shoe : carried;
+    if (mine >= 0) room.rack[mine].shoe = stolen;
+    s.shoe = gave;
+    const vres = room.clients.get(s.owner);
+    if (vres) send(vres, 'shoe-stolen', { shoe: stolen, got: gave }); // không lộ ai đã lấy
+    broadcast(room, 'rack', room.rack);
+    json(res, 200, { ok: true, shoe: stolen, gave: gave });
   });
 }
 
@@ -423,6 +495,9 @@ function route(req, res) {
   if (url.pathname === '/api/gift' && req.method === 'POST') return handleGift(req, res);
   if (url.pathname === '/api/offer' && req.method === 'POST') return handleOffer(req, res);
   if (url.pathname === '/api/review' && req.method === 'POST') return handleReview(req, res);
+  if (url.pathname === '/api/shoes/place' && req.method === 'POST') return handleShoePlace(req, res);
+  if (url.pathname === '/api/shoes/steal' && req.method === 'POST') return handleShoeSteal(req, res);
+  if (url.pathname === '/api/shoes/wear' && req.method === 'POST') return handleShoeWear(req, res);
   if (url.pathname === '/api/task' && req.method === 'POST') return handleTask(req, res);
   if (url.pathname === '/api/task/done' && req.method === 'POST') return handleTaskDone(req, res);
   if (url.pathname === '/api/task/review' && req.method === 'POST') return handleTaskReview(req, res);

@@ -24,7 +24,7 @@
         </svg>
         <span id="online-count">1</span>
       </span>
-      <button id="btn-music" class="pill icon" title="Bật/tắt nhạc" aria-label="Bật/tắt nhạc">
+      <button id="btn-music" class="pill icon" title="Nhạc nền" aria-label="Nhạc nền">
         <svg class="ico ico-on" viewBox="0 0 24 24" aria-hidden="true">
           <path class="solid" d="M11 5 6 9H2v6h4l5 4V5z"/>
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
@@ -40,6 +40,7 @@
         <button id="btn-eat" class="pill temple-only" title="Thọ trai"><span class="ic">🍚</span><span class="label">Thọ trai</span></button>
         <button id="btn-offer" class="pill temple-only" title="Dâng lễ"><span class="ic">🙏</span><span class="label">Dâng lễ</span></button>
         <button id="btn-shop" class="pill temple-only" title="Đổi quà"><span class="ic">🎁</span><span class="label">Đổi quà</span> <span id="points" class="count">0</span></button>
+        <button id="btn-rack" class="pill temple-only" title="Kệ dép"><span class="ic">👡</span><span class="label">Kệ dép</span></button>
         <button id="btn-work" class="pill temple-only" title="Đi làm"><span class="ic">💼</span><span class="label">Đi làm</span></button>
         <button id="btn-temple" class="pill office-only" title="Đi chùa"><span class="ic">卍</span><span class="label">Đi chùa</span></button>
         <button id="btn-assign" class="pill office-only" title="Giao task"><span class="ic">📋</span><span class="label">Giao task</span></button>
@@ -164,6 +165,37 @@
     </div>
   </div>
 
+  <!-- Chọn nhạc nền -->
+  <div id="music" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="music-close" aria-label="Đóng">✕</button>
+      <h2>Nhạc nền</h2>
+      <button id="music-toggle" class="primary"></button>
+      <div id="music-list" class="music-list"></div>
+      <p class="hint" id="music-note"></p>
+    </div>
+  </div>
+
+  <!-- Kệ dép ngoài cửa chùa -->
+  <div id="rack" class="overlay hidden">
+    <div class="card wide">
+      <button class="close" id="rack-close" aria-label="Đóng">✕</button>
+      <h2>Kệ dép</h2>
+      <!-- Xác nhận cầm nhầm: hiện ngay trong popup kệ dép -->
+      <div id="steal" class="steal-panel hidden">
+        <p id="steal-text" class="steal-title"></p>
+        <p class="steal-note">🙏 Nhắc nhẹ: “không lấy của không cho” là giới thứ hai trong Ngũ giới.</p>
+        <div class="quiz-choices">
+          <button id="steal-cancel" class="primary">Thôi, không lấy</button>
+          <button id="steal-ok">Vẫn cầm nhầm</button>
+        </div>
+      </div>
+      <div id="rack-grid" class="rack-grid"></div>
+      <p class="rack-foot" id="rack-sub"></p>
+      <p class="hint rack-note">Bạn có thể cầm nhầm dép của người khác.</p>
+    </div>
+  </div>
+
   <!-- Đổi quà + túi đồ (đặt trước popup chọn người để popup chọn người nằm trên) -->
   <div id="shop" class="overlay hidden">
     <div class="card wide">
@@ -259,6 +291,17 @@
       <div class="quiz-choices">
         <button id="repent-yes" class="primary">Đồng ý</button>
         <button id="repent-no">Để sau</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Popup xác nhận dùng chung (đặt cuối để nằm trên các popup khác) -->
+  <div id="confirm" class="overlay hidden">
+    <div class="card">
+      <p id="confirm-text" class="quiz-question"></p>
+      <div class="quiz-choices">
+        <button id="confirm-cancel">Thôi</button>
+        <button id="confirm-ok" class="primary">Đồng ý</button>
       </div>
     </div>
   </div>

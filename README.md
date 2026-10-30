@@ -26,7 +26,7 @@ Nếu chưa có file, ứng dụng tự phát tiếng mõ + chuông tổng hợp
 - **Pháp danh**: lưu trong localStorage; lần sau ô nhập tự điền tên cũ. Bỏ trống → "Phật tử".
 - **Chính điện**: tượng Phật giữa điện, nền gạch, tông nâu, cột đỏ, lư hương, đèn lồng.
 - **Nhân vật**: đầu tròn, áo lam, không tóc/mặt; đi lại (phím mũi tên/WASD hoặc chạm nền),
-  Đứng / Ngồi / Quỳ / Lạy (nút dưới màn hình hoặc phím 1–4).
+  Ngồi / Quỳ / Lạy (nút dưới màn hình hoặc phím 2–4); đi lại là tự đứng dậy.
 - **Chat**: Enter để gõ, chữ hiện trên đầu 10 giây.
 - **Cùng mạng thấy nhau**: server gom người dùng theo IP — cùng IP public (cùng mạng nhà/công ty)
   là một phòng; mọi IP nội bộ (LAN/localhost) chung một phòng.

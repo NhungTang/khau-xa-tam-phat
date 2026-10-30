@@ -14,6 +14,8 @@ const STALE_MS = 15000;
 const TICK_MS = 100;
 const MAX_BODY = 4096;
 const MAX_PER_ROOM = 60;
+const MAX_TASKS_PER_ROOM = 300;
+const TASK_TTL_MS = 24 * 60 * 60 * 1000; // task cũ hơn 1 ngày tự xoá
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -66,7 +68,7 @@ function networkKey(req) {
 function getRoom(key) {
   let room = rooms.get(key);
   if (!room) {
-    room = { players: new Map(), clients: new Map() };
+    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1 };
     rooms.set(key, room);
   }
   return room;
@@ -131,6 +133,7 @@ function handleEvents(req, res, url) {
   });
   res.write('retry: 2000\n\n');
   room.clients.set(id, res);
+  if (cleanScene(url.searchParams.get('scene')) === 'office') send(res, 'tasks', taskList(room));
   req.on('close', function () {
     if (room.clients.get(id) === res) {
       room.clients.delete(id);
@@ -162,6 +165,8 @@ function handleState(req, res) {
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
       lastBadmouth: prev.lastBadmouth || 0,
+      lastTask: prev.lastTask || 0,
+      lastSlap: prev.lastSlap || 0,
     });
     json(res, 200, { ok: true });
   });
@@ -199,6 +204,80 @@ function handleBadmouth(req, res) {
     if (now - p.lastBadmouth < 2000) return json(res, 429, { error: 'slow down' });
     p.lastBadmouth = now;
     broadcast(room, 'badmouth', { from: id, target: target });
+    json(res, 200, { ok: true });
+  });
+}
+
+// Tát đồng nghiệp (chỉ ở công sở): phải đứng gần; mọi người trong phòng thấy người bị tát.
+const SLAP_RANGE = 160; // rộng hơn tầm ở client (90) vì vị trí trên server trễ một chút
+function handleSlap(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const target = b && cleanId(b.target);
+    if (!id || !target || id === target) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const p = room.players.get(id);
+    const q = room.players.get(target);
+    const now = Date.now();
+    if (!p || !q) return json(res, 409, { error: 'not connected' });
+    if (Math.hypot(p.x - q.x, p.y - q.y) > SLAP_RANGE) return json(res, 409, { error: 'too far' });
+    if (now - p.lastSlap < 1500) return json(res, 429, { error: 'slow down' });
+    p.lastSlap = now;
+    broadcast(room, 'slap', { from: id, target: target });
+    json(res, 200, { ok: true });
+  });
+}
+
+// ---------- Giao task (chỉ ở công sở) ----------
+// Task: { id, from, fromName, to, toName, text, status: 'todo' | 'review', redo, at }
+function taskList(room) {
+  return Array.from(room.tasks.values());
+}
+
+function handleTask(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const to = b && cleanId(b.to);
+    const text = b && cleanText(b.text, 200);
+    if (!id || !to || id === to || !text) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const p = room.players.get(id);
+    const q = room.players.get(to);
+    const now = Date.now();
+    if (!p || !q) return json(res, 409, { error: 'not connected' });
+    if (now - p.lastTask < 1000) return json(res, 429, { error: 'slow down' });
+    if (room.tasks.size >= MAX_TASKS_PER_ROOM) return json(res, 503, { error: 'too many tasks' });
+    p.lastTask = now;
+    const tid = String(room.nextTaskId++);
+    room.tasks.set(tid, { id: tid, from: id, fromName: p.name, to: to, toName: q.name, text: text, status: 'todo', redo: false, at: now });
+    broadcast(room, 'tasks', taskList(room));
+    json(res, 200, { ok: true });
+  });
+}
+
+// Người nhận báo đã xong → chờ người giao duyệt.
+function handleTaskDone(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const t = b && room.tasks.get(String(b.task));
+    if (!id || !t || t.to !== id || t.status !== 'todo') return json(res, 409, { error: 'bad task' });
+    t.status = 'review';
+    broadcast(room, 'tasks', taskList(room));
+    json(res, 200, { ok: true });
+  });
+}
+
+// Người giao duyệt: đồng ý → xoá task; không đồng ý → quay lại 'todo' (bắt làm lại).
+function handleTaskReview(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const t = b && room.tasks.get(String(b.task));
+    if (!id || !t || t.from !== id || t.status !== 'review') return json(res, 409, { error: 'bad task' });
+    if (b.ok === true) room.tasks.delete(t.id);
+    else { t.status = 'todo'; t.redo = true; }
+    broadcast(room, 'tasks', taskList(room));
     json(res, 200, { ok: true });
   });
 }
@@ -264,6 +343,10 @@ function route(req, res) {
   if (url.pathname === '/api/state' && req.method === 'POST') return handleState(req, res);
   if (url.pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res);
   if (url.pathname === '/api/badmouth' && req.method === 'POST') return handleBadmouth(req, res);
+  if (url.pathname === '/api/slap' && req.method === 'POST') return handleSlap(req, res);
+  if (url.pathname === '/api/task' && req.method === 'POST') return handleTask(req, res);
+  if (url.pathname === '/api/task/done' && req.method === 'POST') return handleTaskDone(req, res);
+  if (url.pathname === '/api/task/review' && req.method === 'POST') return handleTaskReview(req, res);
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res, url);
   res.writeHead(405);
   res.end();
@@ -276,7 +359,10 @@ setInterval(function () {
     room.players.forEach(function (p, id) {
       if (now - p.seen > STALE_MS) room.players.delete(id);
     });
-    if (room.clients.size === 0 && room.players.size === 0) { rooms.delete(key); return; }
+    room.tasks.forEach(function (t, tid) {
+      if (now - t.at > TASK_TTL_MS) room.tasks.delete(tid);
+    });
+    if (room.clients.size === 0 && room.players.size === 0 && room.tasks.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
       list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus });

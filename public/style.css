@@ -78,7 +78,19 @@ input, textarea {
 .brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 36px; }
 .top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .top-row { display: flex; align-items: center; gap: 10px; }
-#btn-sutra, #btn-eat, #btn-work, #btn-temple { width: 100%; }
+#btn-sutra, #btn-eat, #btn-work, #btn-temple, #btn-assign, #btn-mytasks { width: 100%; }
+#btn-mytasks .count {
+  display: inline-block;
+  min-width: 20px;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--err);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
 /* Nút chỉ hiện ở chùa / chỉ hiện ở văn phòng */
 body.office .temple-only, body:not(.office) .office-only { display: none !important; }
 #online {
@@ -223,9 +235,34 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   .poses button { flex: 1; padding: 10px 4px; }
   #chat-form { min-width: 0; width: 100%; }
 }
-#repent .quiz-choices .primary { margin-top: 0; }
-#btn-badmouth { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-#btn-badmouth .ico { color: #ff9a6a; }
+#repent .quiz-choices .primary,
+#review .quiz-choices .primary { margin-top: 0; }
+select {
+  font: inherit;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #b08a5a;
+  background: #fffaf0;
+  color: var(--ink);
+}
+#assign-text { resize: vertical; }
+.task-list { display: flex; flex-direction: column; gap: 10px; }
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff6e2;
+  border-left: 4px solid var(--gold);
+}
+.task-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.task-from { font-size: 12px; opacity: .7; margin-bottom: 2px; }
+.task-row button { flex: none; }
+.card .task-row .primary { width: auto; margin-top: 0; padding: 8px 14px; }
+#btn-badmouth, #btn-slap { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+#btn-badmouth .ico, #btn-slap .ico { color: #ff9a6a; }
 .card .gender { display: flex; gap: 20px; justify-content: center; margin-top: 10px; }
 .card .gender label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; cursor: pointer; }
 .card .gender input { width: auto; margin: 0; }

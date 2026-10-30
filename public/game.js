@@ -41,7 +41,8 @@
   // ---------- Công sở ----------
   const DEFAULT_OFFICE_NAME = 'Nhân viên';
   const BADMOUTH_MS = 10000;     // mặt người bị nói xấu đen trong 10 giây
-  const REPENT_DELAY_MS = 10000; // 10 giây sau khi nói xấu / nói bậy → nhắc đi chùa sám hối
+  const REPENT_DELAY_MS = 10000;
+  const SLAP_RANGE = 90;         // phải đứng gần mới tát được // 10 giây sau khi nói xấu / nói bậy → nhắc đi chùa sám hối
   const DESKS = [];
   [580, 820].forEach(function (y) {
     [300, 560, 840, 1100].forEach(function (x) { DESKS.push({ x: x, y: y }); });
@@ -95,6 +96,8 @@
   const bubbles = new Map();
   const keys = new Set();
   const blackFaces = new Map(); // id → thời điểm hết mặt đen
+  const slaps = new Map();      // id → thời điểm bị tát
+  let tasks = [];               // task trong văn phòng (server gửi xuống)
   let started = false;
   let scene = 'temple'; // 'temple' | 'office'
   let templeName = DEFAULT_NAME;
@@ -154,8 +157,7 @@
     } else if (k === 'enter') {
       $('chat-input').focus();
       e.preventDefault();
-    } else if (k === '1') setPose('stand');
-    else if (k === '2') setPose('sit');
+    } else if (k === '2') setPose('sit');
     else if (k === '3' && scene === 'temple') setPose('kneel');
     else if (k === '4' && scene === 'temple') setPose('bow');
     else if (k === '5' && scene === 'temple') openFood();
@@ -294,6 +296,15 @@
         toast((o ? o.name : 'Một đồng nghiệp') + ' vừa nói xấu bạn!');
       }
     });
+    es.addEventListener('tasks', function (ev) { onTasks(JSON.parse(ev.data)); });
+    es.addEventListener('slap', function (ev) {
+      const s = JSON.parse(ev.data);
+      slaps.set(s.target, Date.now());
+      if (s.target === me.id) {
+        const o = others.get(s.from);
+        toast((o ? o.name : 'Một đồng nghiệp') + ' vừa tát bạn!');
+      }
+    });
     es.addEventListener('leave', function (ev) {
       const id = JSON.parse(ev.data).id;
       others.delete(id);
@@ -331,6 +342,9 @@
     others.clear();
     bubbles.clear();
     blackFaces.clear();
+    slaps.clear();
+    tasks = [];
+    updateTaskBadge();
     keys.clear();
     me.x = 700;
     me.y = next === 'office' ? 940 : 840;
@@ -364,29 +378,173 @@
   });
   $('btn-temple').addEventListener('click', function () { switchScene('temple'); });
 
-  // Nói xấu đồng nghiệp: chọn một người đang ở văn phòng → mặt họ đen 10 giây.
-  $('btn-badmouth').addEventListener('click', function () {
-    if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
-    const list = $('badmouth-list');
+  // Popup chọn đồng nghiệp (dùng cho Nói xấu và Tát).
+  function pickColleague(title, sub, ids, onPick) {
+    const list = $('pick-list');
     list.textContent = '';
-    others.forEach(function (o, id) {
+    ids.forEach(function (id) {
+      const o = others.get(id);
       const b = document.createElement('button');
       b.textContent = o.name || DEFAULT_OFFICE_NAME;
-      b.addEventListener('click', function () { badmouth(id, o.name); });
+      b.addEventListener('click', function () {
+        $('pick').classList.add('hidden');
+        onPick(id, o.name || DEFAULT_OFFICE_NAME);
+      });
       list.appendChild(b);
     });
-    $('badmouth').classList.remove('hidden');
+    $('pick-title').textContent = title;
+    $('pick-sub').textContent = sub;
+    $('pick').classList.remove('hidden');
     keys.clear();
+  }
+  $('pick-close').addEventListener('click', function () { $('pick').classList.add('hidden'); });
+
+  // Nói xấu đồng nghiệp: chọn một người đang ở văn phòng → mặt họ xám 10 giây.
+  $('btn-badmouth').addEventListener('click', function () {
+    if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
+    pickColleague('Nói xấu ai?', 'Chọn một đồng nghiệp đang ở văn phòng', Array.from(others.keys()), badmouth);
   });
-  $('badmouth-close').addEventListener('click', function () { $('badmouth').classList.add('hidden'); });
+
+  // Tát đồng nghiệp: chỉ tát được người đang đứng gần.
+  $('btn-slap').addEventListener('click', function () {
+    const near = [];
+    others.forEach(function (o, id) {
+      if (Math.hypot(o.rx - me.x, o.ry - me.y) <= SLAP_RANGE) near.push(id);
+    });
+    if (near.length === 0) { toast('Đi lại gần đồng nghiệp mới tát được.'); return; }
+    pickColleague('Tát ai?', 'Đồng nghiệp đang đứng gần bạn', near, function (id, name) {
+      slaps.set(id, Date.now());
+      post('/api/slap', { id: me.id, target: id });
+      toast('Bạn vừa tát ' + name + '!');
+      scheduleRepent();
+    });
+  });
 
   function badmouth(id, name) {
-    $('badmouth').classList.add('hidden');
     blackFaces.set(id, Date.now() + BADMOUTH_MS);
     post('/api/badmouth', { id: me.id, target: id });
     toast('Bạn vừa nói xấu ' + (name || DEFAULT_OFFICE_NAME) + '…');
     scheduleRepent();
   }
+
+  // ---------- Giao task ----------
+  function myTasks() { return tasks.filter(function (t) { return t.to === me.id; }); }
+
+  // So danh sách cũ/mới để báo cho user: được giao task, được duyệt, bị bắt làm lại.
+  function onTasks(list) {
+    const prev = new Map(tasks.map(function (t) { return [t.id, t]; }));
+    const next = new Map(list.map(function (t) { return [t.id, t]; }));
+    list.forEach(function (t) {
+      const old = prev.get(t.id);
+      if (t.to !== me.id) return;
+      if (!old) toast(t.fromName + ' vừa giao task cho bạn: ' + t.text);
+      else if (old.status === 'review' && t.status === 'todo') toast(t.fromName + ' bắt bạn làm lại: ' + t.text, 6000);
+    });
+    prev.forEach(function (t) {
+      if (t.to === me.id && t.status === 'review' && !next.has(t.id)) toast(t.fromName + ' đã duyệt xong task: ' + t.text);
+    });
+    tasks = list;
+    updateTaskBadge();
+    if (!$('mytasks').classList.contains('hidden')) renderMyTasks();
+    checkReviews();
+  }
+
+  function updateTaskBadge() { $('task-count').textContent = myTasks().length; }
+
+  $('btn-assign').addEventListener('click', function () {
+    if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
+    const sel = $('assign-to');
+    sel.textContent = '';
+    others.forEach(function (o, id) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = o.name || DEFAULT_OFFICE_NAME;
+      sel.appendChild(opt);
+    });
+    $('assign-text').value = '';
+    $('assign').classList.remove('hidden');
+    keys.clear();
+    setTimeout(function () { $('assign-text').focus(); }, 50);
+  });
+  $('assign-close').addEventListener('click', function () { $('assign').classList.add('hidden'); });
+  $('assign-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const to = $('assign-to').value;
+    const text = $('assign-text').value.trim().slice(0, 200);
+    if (!to || !text) { toast('Chọn người làm và viết mô tả task.'); return; }
+    post('/api/task', { id: me.id, to: to, text: text });
+    $('assign-text').blur();
+    $('assign').classList.add('hidden');
+    const o = others.get(to);
+    toast('Đã giao task cho ' + (o ? o.name : DEFAULT_OFFICE_NAME) + '.');
+  });
+
+  function renderMyTasks() {
+    const list = $('mytasks-list');
+    list.textContent = '';
+    const mine = myTasks();
+    if (mine.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'sub';
+      p.textContent = 'Không có task nào 🎉';
+      list.appendChild(p);
+      return;
+    }
+    mine.forEach(function (t) {
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      const info = document.createElement('div');
+      info.className = 'task-info';
+      const from = document.createElement('div');
+      from.className = 'task-from';
+      from.textContent = 'Từ ' + t.fromName + (t.redo ? ' · bị bắt làm lại' : '');
+      const text = document.createElement('div');
+      text.textContent = t.text;
+      info.appendChild(from);
+      info.appendChild(text);
+      const btn = document.createElement('button');
+      if (t.status === 'review') {
+        btn.textContent = 'Chờ duyệt…';
+        btn.disabled = true;
+      } else {
+        btn.textContent = 'Đã xong';
+        btn.className = 'primary';
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          post('/api/task/done', { id: me.id, task: t.id });
+        });
+      }
+      row.appendChild(info);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+  $('btn-mytasks').addEventListener('click', function () {
+    renderMyTasks();
+    $('mytasks').classList.remove('hidden');
+    keys.clear();
+  });
+  $('mytasks-close').addEventListener('click', function () { $('mytasks').classList.add('hidden'); });
+
+  // Người giao: có task chờ duyệt → hỏi đồng ý hay bắt làm lại (lần lượt từng task).
+  let reviewing = null;
+  function checkReviews() {
+    if (scene !== 'office' || reviewing || overlayOpen()) return;
+    const t = tasks.find(function (x) { return x.from === me.id && x.status === 'review'; });
+    if (!t) return;
+    reviewing = t.id;
+    $('review-text').textContent = t.toName + ' báo đã xong task: "' + t.text + '"';
+    $('review').classList.remove('hidden');
+    keys.clear();
+  }
+  function answerReview(ok) {
+    post('/api/task/review', { id: me.id, task: reviewing, ok: ok });
+    reviewing = null;
+    $('review').classList.add('hidden');
+  }
+  $('review-ok').addEventListener('click', function () { answerReview(true); });
+  $('review-redo').addEventListener('click', function () { answerReview(false); });
+  setInterval(checkReviews, 1500); // hiện khi các popup khác đã đóng
 
   // Chỉ mình user thấy: nhắc đi chùa sám hối (nhiều lần vi phạm liền nhau → chỉ một popup).
   let repentTimer = 0;
@@ -1232,6 +1390,7 @@
   // Đặt lại mỗi lần vẽ một nhân vật (drawMonk).
   let officeLook = false;
   let darkFace = false;
+  let slapCheek = false;
   let female = false;
 
   function robeShape(topY, botY, topW, botW) {
@@ -1294,6 +1453,10 @@
     ctx.strokeStyle = 'rgba(150,100,70,.5)';
     ctx.lineWidth = 1;
     ctx.stroke();
+    if (slapCheek) { // má đỏ sau khi bị tát
+      ctx.fillStyle = 'rgba(220,40,40,.65)';
+      ctx.beginPath(); ctx.ellipse(7, y + 4, 4.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
     if (officeLook) { // tóc mái: vòm tóc phủ đỉnh đầu, mép lượn sóng ngang trán (nữ dài hơn nam)
       const ey = y - (female ? 3 : 6);
       const a0 = Math.PI * (female ? 0.92 : 0.97);
@@ -1324,6 +1487,9 @@
     officeLook = scene === 'office';
     female = officeLook && p.gender === 'f'; // ở chùa ai cũng như nhau
     darkFace = (blackFaces.get(p.id) || 0) > Date.now();
+    const slapAgo = Date.now() - (slaps.get(p.id) || 0);
+    slapCheek = slapAgo < 3000;
+    if (slapAgo < 600) ctx.translate(Math.sin(t / 22) * 3 * (1 - slapAgo / 600), 0); // rung người
 
     if (p.pose === 'sit') {
       ctx.fillStyle = officeLook ? (female ? SKIRT : PANTS) : ROBE_DARK;
@@ -1477,6 +1643,23 @@
     ctx.restore();
   }
 
+  function drawPow(x, y, ago) {
+    const s = ago < 150 ? 0.6 + ago / 150 * 0.6 : 1.2 - Math.min(0.2, (ago - 150) / 850 * 0.2);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - Math.max(0, ago - 700) / 300);
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText('BỐP!', 0, 0);
+    ctx.fillStyle = '#d62828';
+    ctx.fillText('BỐP!', 0, 0);
+    ctx.restore();
+  }
+
   function drawBubble(text, x, y, until) {
     ctx.font = '13px sans-serif';
     const lines = wrap(text, 170);
@@ -1557,6 +1740,8 @@
       const lotus = scene === 'temple' && (a.isMe ? Date.now() < (me.lotusUntil || 0) : !!a.p.lotus);
       let top = a.top;
       if (lotus) { drawLotus(a.x, top - 9, now); top -= 20; }
+      const slapAgo = Date.now() - (slaps.get(a.p.id) || 0);
+      if (slapAgo < 1000) drawPow(a.x, top - 22, slapAgo);
       drawLabel(a.p.name, a.x, top - 4);
       const b = bubbles.get(a.p.id);
       if (b) drawBubble(b.text, a.x, top - 18, b.until);

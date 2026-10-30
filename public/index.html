@@ -37,14 +37,23 @@
       <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
       <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
       <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
+      <button id="btn-assign" class="pill office-only">📋 Giao task</button>
+      <button id="btn-mytasks" class="pill office-only">🗂️ Task của tôi <span id="task-count" class="count">0</span></button>
     </div>
   </header>
 
   <!-- Thanh dưới: hành động + chat -->
   <footer id="bottombar" class="hidden">
     <div class="poses">
-      <button data-pose="stand">Đứng</button>
       <button data-pose="sit">Ngồi</button>
+      <button id="btn-slap" class="office-only">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/>
+          <path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+        </svg>
+        Tát
+      </button>
       <button data-pose="kneel" class="temple-only">Quỳ</button>
       <button data-pose="bow" class="temple-only">Lạy</button>
       <button id="btn-badmouth" class="office-only">
@@ -145,13 +154,49 @@
     </div>
   </div>
 
-  <!-- Nói xấu đồng nghiệp: chọn người -->
-  <div id="badmouth" class="overlay hidden">
+  <!-- Chọn đồng nghiệp (nói xấu / tát) -->
+  <div id="pick" class="overlay hidden">
     <div class="card">
-      <button class="close" id="badmouth-close" aria-label="Đóng">✕</button>
-      <h2>Nói xấu ai?</h2>
-      <p class="sub">Chọn một đồng nghiệp đang ở văn phòng</p>
-      <div id="badmouth-list" class="food-list"></div>
+      <button class="close" id="pick-close" aria-label="Đóng">✕</button>
+      <h2 id="pick-title"></h2>
+      <p class="sub" id="pick-sub"></p>
+      <div id="pick-list" class="food-list"></div>
+    </div>
+  </div>
+
+  <!-- Giao task -->
+  <div id="assign" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="assign-close" aria-label="Đóng">✕</button>
+      <h2>Giao task</h2>
+      <form id="assign-form" autocomplete="off">
+        <label for="assign-to">Người làm</label>
+        <select id="assign-to"></select>
+        <label for="assign-text">Mô tả task</label>
+        <textarea id="assign-text" rows="3" maxlength="200" placeholder="Ví dụ: Làm báo cáo KPI trước 5h chiều"></textarea>
+        <button type="submit" class="primary">Giao</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Task của tôi -->
+  <div id="mytasks" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="mytasks-close" aria-label="Đóng">✕</button>
+      <h2>Task của tôi</h2>
+      <div id="mytasks-list" class="task-list"></div>
+    </div>
+  </div>
+
+  <!-- Người giao duyệt task -->
+  <div id="review" class="overlay hidden">
+    <div class="card">
+      <h2>Duyệt task</h2>
+      <p id="review-text" class="quiz-question"></p>
+      <div class="quiz-choices">
+        <button id="review-ok" class="primary">Đồng ý</button>
+        <button id="review-redo">Bắt làm lại</button>
+      </div>
     </div>
   </div>
 

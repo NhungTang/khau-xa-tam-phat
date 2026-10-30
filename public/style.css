@@ -151,7 +151,8 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   padding-bottom: max(14px, env(safe-area-inset-bottom));
   background: linear-gradient(rgba(42, 23, 12, 0), rgba(42, 23, 12, .92));
 }
-.poses { display: flex; gap: 10px; }
+.poses { display: flex; gap: 8px; }
+.poses button { padding: 5px 10px; }
 #chat-form { display: flex; gap: 10px; flex: 1; min-width: 220px; }
 #chat-form input { padding: 8px 12px; }
 
@@ -250,11 +251,21 @@ body.office .temple-only, body:not(.office) .office-only { display: none !import
   pointer-events: none;
 }
 
+.ic + .label { margin-left: 5px; }
+
 @media (max-width: 600px) {
+  /* Điện thoại: chỉ hiện icon, chữ ẩn (vẫn có title / tooltip) */
+  .label { display: none; }
+  .ic { font-size: 17px; line-height: 1; }
+  #topbar .pill { padding: 5px 9px; }
+  .top-buttons { gap: 6px; }
+  .poses { gap: 6px; }
+  #chat-form button { padding: 6px 12px; }
+  .stress-bar { width: 40px; }
   .brand { font-size: 14px; }
   #online { display: none; }
   .poses { width: 100%; }
-  .poses button { flex: 1; padding: 8px 4px; }
+  .poses button { flex: 1; padding: 5px 4px; }
   #chat-form { min-width: 0; width: 100%; }
 }
 #repent .quiz-choices .primary,
@@ -311,8 +322,6 @@ select {
 .shop-item .emoji { font-size: 28px; }
 .shop-item .price { font-size: 13px; opacity: .8; }
 .shop-item:disabled { opacity: .45; cursor: not-allowed; }
-#btn-badmouth, #btn-slap { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-#btn-badmouth .ico, #btn-slap .ico { color: #ff9a6a; }
 .card .gender { display: flex; gap: 20px; justify-content: center; margin-top: 10px; }
 .card .gender label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; cursor: pointer; }
 .card .gender input { width: auto; margin: 0; }

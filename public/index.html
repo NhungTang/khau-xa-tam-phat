@@ -36,16 +36,16 @@
       </button>
       </div>
       <div class="top-buttons">
-        <button id="btn-sutra" class="pill temple-only">📜 Chép kinh <span id="sutra-badge"></span></button>
-        <button id="btn-eat" class="pill temple-only">🍚 Thọ trai</button>
-        <button id="btn-offer" class="pill temple-only">🙏 Dâng lễ</button>
-        <button id="btn-shop" class="pill temple-only">🎁 Đổi quà <span id="points" class="count">0</span></button>
-        <button id="btn-work" class="pill temple-only">💼 Đi làm</button>
-        <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
-        <button id="btn-assign" class="pill office-only">📋 Giao task</button>
-        <button id="btn-mytasks" class="pill office-only">🗂️ Task của tôi <span id="task-count" class="count">0</span></button>
-        <button id="btn-review" class="pill office-only">⭐ Review đồng nghiệp</button>
-        <button id="btn-myreviews" class="pill office-only">📝 Review về tôi <span id="review-count" class="count">0</span></button>
+        <button id="btn-sutra" class="pill temple-only" title="Chép kinh"><span class="ic">📜</span><span class="label">Chép kinh</span> <span id="sutra-badge"></span></button>
+        <button id="btn-eat" class="pill temple-only" title="Thọ trai"><span class="ic">🍚</span><span class="label">Thọ trai</span></button>
+        <button id="btn-offer" class="pill temple-only" title="Dâng lễ"><span class="ic">🙏</span><span class="label">Dâng lễ</span></button>
+        <button id="btn-shop" class="pill temple-only" title="Đổi quà"><span class="ic">🎁</span><span class="label">Đổi quà</span> <span id="points" class="count">0</span></button>
+        <button id="btn-work" class="pill temple-only" title="Đi làm"><span class="ic">💼</span><span class="label">Đi làm</span></button>
+        <button id="btn-temple" class="pill office-only" title="Đi chùa"><span class="ic">卍</span><span class="label">Đi chùa</span></button>
+        <button id="btn-assign" class="pill office-only" title="Giao task"><span class="ic">📋</span><span class="label">Giao task</span></button>
+        <button id="btn-mytasks" class="pill office-only" title="Task của tôi"><span class="ic">🗂️</span><span class="label">Task của tôi</span> <span id="task-count" class="count">0</span></button>
+        <button id="btn-review" class="pill office-only" title="Review đồng nghiệp"><span class="ic">⭐</span><span class="label">Review đồng nghiệp</span></button>
+        <button id="btn-myreviews" class="pill office-only" title="Review về tôi"><span class="ic">📝</span><span class="label">Review về tôi</span> <span id="review-count" class="count">0</span></button>
       </div>
     </div>
   </header>
@@ -53,31 +53,18 @@
   <!-- Thanh dưới: hành động + chat -->
   <footer id="bottombar" class="hidden">
     <div class="poses">
-      <button data-pose="sit">Ngồi</button>
-      <button id="btn-slap" class="office-only">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/>
-          <path d="M10 10.5V6a2 2 0 0 0-4 0v8"/>
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
-        </svg>
-        Tát
-      </button>
-      <button id="btn-sleep" class="office-only">Ngủ</button>
-      <button id="btn-coffee" class="office-only">☕ Cà phê</button>
-      <button id="btn-microwave" class="office-only">🍱 Quay cơm</button>
-      <button data-pose="kneel" class="temple-only">Quỳ</button>
-      <button data-pose="bow" class="temple-only">Lạy</button>
-      <button id="btn-badmouth" class="office-only">
-        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/>
-          <path d="M8 12.5l2.2-2.3 2.3 2.6 2.2-3"/>
-        </svg>
-        Nói xấu đồng nghiệp
-      </button>
+      <button data-pose="sit" title="Ngồi">Ngồi</button>
+      <button id="btn-slap" class="office-only" title="Tát">Tát</button>
+      <button id="btn-sleep" class="office-only" title="Ngủ">Ngủ</button>
+      <button id="btn-coffee" class="office-only" title="Cà phê">Cà phê</button>
+      <button id="btn-microwave" class="office-only" title="Quay cơm">Quay cơm</button>
+      <button data-pose="kneel" class="temple-only" title="Quỳ">Quỳ</button>
+      <button data-pose="bow" class="temple-only" title="Lạy">Lạy</button>
+      <button id="btn-badmouth" class="office-only" title="Nói xấu">Nói xấu</button>
     </div>
     <form id="chat-form" autocomplete="off">
       <input id="chat-input" maxlength="120" placeholder="Nói lời hay ý đẹp… (Enter để gửi)">
-      <button type="submit">Gửi</button>
+      <button type="submit" title="Gửi">Gửi</button>
     </form>
   </footer>
 

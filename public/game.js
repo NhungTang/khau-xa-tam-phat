@@ -1381,7 +1381,9 @@
     ch = rect.height || window.innerHeight;
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
-    scale = clamp(Math.min(cw / 900, ch / 640), 0.42, 1.6);
+    // Điện thoại dọc: phóng to theo chiều ngang (camera đi theo nhân vật) để nhân vật không quá nhỏ.
+    const fit = cw < ch ? cw / 560 : Math.min(cw / 900, ch / 640);
+    scale = clamp(fit, 0.55, 1.6);
   }
   window.addEventListener('resize', resize);
   resize();
@@ -2505,10 +2507,12 @@
   }
 
   function drawLabel(name, x, y) {
-    ctx.font = '8px sans-serif';
+    // Điện thoại dọc: cảnh bị thu nhỏ nên phóng chữ lại, để tên luôn cao ~10px trên màn hình.
+    const size = cw < ch ? 10 / scale : 8;
+    ctx.font = size + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = size / 4;
     ctx.strokeStyle = 'rgba(30,15,5,.85)';
     ctx.strokeText(name, x, y);
     ctx.fillStyle = '#f5d98b';

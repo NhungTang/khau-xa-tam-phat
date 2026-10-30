@@ -269,6 +269,19 @@ select {
   color: var(--ink);
 }
 #assign-text { resize: vertical; }
+#rv-text { resize: vertical; }
+.rv-stars { display: flex; gap: 6px; }
+.rv-stars button {
+  padding: 2px 6px;
+  font-size: 26px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: #c9bfae;
+}
+.rv-stars button.on { color: #e8a317; }
+.rv-stars-text { color: #e8a317; letter-spacing: 1px; }
+#myreviews-list { max-height: 50vh; overflow-y: auto; }
 .task-list { display: flex; flex-direction: column; gap: 10px; }
 .task-row {
   display: flex;
@@ -303,3 +316,7 @@ select {
 .card .gender { display: flex; gap: 20px; justify-content: center; margin-top: 10px; }
 .card .gender label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; cursor: pointer; }
 .card .gender input { width: auto; margin: 0; }
+
+/* Popup review rộng hơn */
+#myreviews .card { max-width: 640px; }
+#rv .card { max-width: 520px; }

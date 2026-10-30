@@ -73,7 +73,7 @@ function networkKey(req) {
 function getRoom(key) {
   let room = rooms.get(key);
   if (!room) {
-    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [] };
+    room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [], reviews: new Map() };
     rooms.set(key, room);
   }
   return room;
@@ -141,6 +141,7 @@ function handleEvents(req, res, url) {
   room.clients.set(id, res);
   if (cleanScene(url.searchParams.get('scene')) === 'office') {
     send(res, 'tasks', taskList(room));
+    send(res, 'reviews', reviewsFor(room, id));
     if (bossActive(room, Date.now())) send(res, 'boss', { elapsed: Date.now() - room.boss.start, dur: room.boss.dur });
   } else {
     send(res, 'offerings', room.offerings);
@@ -175,6 +176,7 @@ function handleState(req, res) {
       lotus: b.lotus === true,
       stress: Math.round(clampNum(b.stress, 0, 100, 0)),
       caught: b.caught === true,
+      heating: b.heating === true,
       wear: Array.isArray(b.wear) ? b.wear.filter(function (s) { return typeof s === 'string' && ITEM_ID.test(s); }).slice(0, 8) : [],
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
@@ -183,6 +185,7 @@ function handleState(req, res) {
       lastSlap: prev.lastSlap || 0,
       lastGift: prev.lastGift || 0,
       lastOffer: prev.lastOffer || 0,
+      lastReview: prev.lastReview || 0,
     });
     json(res, 200, { ok: true });
   });
@@ -293,6 +296,33 @@ function handleOffer(req, res) {
     room.offerings.push({ item: item, by: p.name, at: now });
     if (room.offerings.length > MAX_OFFERINGS) room.offerings.shift();
     broadcast(room, 'offerings', room.offerings);
+    json(res, 200, { ok: true });
+  });
+}
+
+// ---------- Review đồng nghiệp (công sở) ----------
+// Mỗi người review một đồng nghiệp một lần (viết lại thì thay bản cũ). Người được review nhận danh sách của mình.
+function reviewsFor(room, to) {
+  const out = [];
+  room.reviews.forEach(function (r) { if (r.to === to) out.push(r); });
+  return out.sort(function (a, b) { return b.at - a.at; });
+}
+function handleReview(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const to = b && cleanId(b.to);
+    const stars = b && Math.round(Number(b.stars));
+    const text = b && cleanText(b.text, 200);
+    if (!id || !to || id === to || !(stars >= 1 && stars <= 5)) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'office'));
+    const p = room.players.get(id);
+    const now = Date.now();
+    if (!p || !room.players.has(to)) return json(res, 409, { error: 'not connected' });
+    if (now - p.lastReview < 2000) return json(res, 429, { error: 'slow down' });
+    p.lastReview = now;
+    room.reviews.set(id + '>' + to, { from: id, fromName: p.name, to: to, stars: stars, text: text, at: now });
+    const tres = room.clients.get(to);
+    if (tres) send(tres, 'reviews', reviewsFor(room, to));
     json(res, 200, { ok: true });
   });
 }
@@ -415,6 +445,7 @@ function route(req, res) {
   if (url.pathname === '/api/slap' && req.method === 'POST') return handleSlap(req, res);
   if (url.pathname === '/api/gift' && req.method === 'POST') return handleGift(req, res);
   if (url.pathname === '/api/offer' && req.method === 'POST') return handleOffer(req, res);
+  if (url.pathname === '/api/review' && req.method === 'POST') return handleReview(req, res);
   if (url.pathname === '/api/task' && req.method === 'POST') return handleTask(req, res);
   if (url.pathname === '/api/task/done' && req.method === 'POST') return handleTaskDone(req, res);
   if (url.pathname === '/api/task/review' && req.method === 'POST') return handleTaskReview(req, res);
@@ -439,10 +470,13 @@ setInterval(function () {
       room.offerings = kept;
       broadcast(room, 'offerings', kept);
     }
-    if (room.clients.size === 0 && room.players.size === 0 && room.tasks.size === 0) { rooms.delete(key); return; }
+    room.reviews.forEach(function (r, rid) {
+      if (now - r.at > TASK_TTL_MS) room.reviews.delete(rid);
+    });
+    if (room.clients.size === 0 && room.players.size === 0 && room.tasks.size === 0 && room.reviews.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
-      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear, stress: p.stress, caught: p.caught });
+      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear, stress: p.stress, caught: p.caught, heating: p.heating });
     });
     const msg = 'event: snapshot\ndata: ' + JSON.stringify(list) + '\n\n';
     if (msg === room.lastSnapshot && now - room.lastSnapshotAt < 2000) return;

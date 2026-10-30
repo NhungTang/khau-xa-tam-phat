@@ -44,6 +44,8 @@
         <button id="btn-temple" class="pill office-only">卍 Đi chùa</button>
         <button id="btn-assign" class="pill office-only">📋 Giao task</button>
         <button id="btn-mytasks" class="pill office-only">🗂️ Task của tôi <span id="task-count" class="count">0</span></button>
+        <button id="btn-review" class="pill office-only">⭐ Review đồng nghiệp</button>
+        <button id="btn-myreviews" class="pill office-only">📝 Review về tôi <span id="review-count" class="count">0</span></button>
       </div>
     </div>
   </header>
@@ -62,6 +64,7 @@
       </button>
       <button id="btn-sleep" class="office-only">Ngủ</button>
       <button id="btn-coffee" class="office-only">☕ Cà phê</button>
+      <button id="btn-microwave" class="office-only">🍱 Quay cơm</button>
       <button data-pose="kneel" class="temple-only">Quỳ</button>
       <button data-pose="bow" class="temple-only">Lạy</button>
       <button id="btn-badmouth" class="office-only">
@@ -229,6 +232,35 @@
         <button id="review-ok" class="primary">Đồng ý</button>
         <button id="review-redo">Bắt làm lại</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Viết review đồng nghiệp -->
+  <div id="rv" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="rv-close" aria-label="Đóng">✕</button>
+      <h2>Review đồng nghiệp</h2>
+      <form id="rv-form" autocomplete="off">
+        <label for="rv-to">Review ai</label>
+        <select id="rv-to"></select>
+        <label>Chấm điểm</label>
+        <div id="rv-stars" class="rv-stars">
+          <button type="button" data-n="1">★</button><button type="button" data-n="2">★</button><button type="button" data-n="3">★</button><button type="button" data-n="4">★</button><button type="button" data-n="5">★</button>
+        </div>
+        <label for="rv-text">Nhận xét</label>
+        <textarea id="rv-text" rows="3" maxlength="200" placeholder="Ví dụ: Làm việc nhanh, hay giúp đỡ mọi người"></textarea>
+        <button type="submit" class="primary">Gửi review</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Review về tôi -->
+  <div id="myreviews" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="myreviews-close" aria-label="Đóng">✕</button>
+      <h2>Review về tôi</h2>
+      <p class="sub" id="myreviews-avg"></p>
+      <div id="myreviews-list" class="task-list"></div>
     </div>
   </div>
 

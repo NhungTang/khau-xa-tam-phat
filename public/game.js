@@ -111,7 +111,9 @@
   for (let x = 980; x <= 1300; x += 40) OFFICE_OBSTACLES.push({ x: x, y: 470, r: 24 }); // quầy pantry
   OFFICE_OBSTACLES.push({ x: ROUND_TABLE.x, y: ROUND_TABLE.y - 6, r: 42 });
   [1030, 1090, 1150, 1210, 1270].forEach(function (x) { OFFICE_OBSTACLES.push({ x: x, y: MEET_TABLE.y, r: 42 }); });
-  const DRINKS = [{ id: 'cafe', emoji: '☕', name: 'Cà phê' }];
+  const PANTRY_FOODS = [{ id: 'cafe', emoji: '☕', name: 'Cà phê' }, { id: 'comhop', emoji: '🍱', name: 'Cơm hộp' }];
+  const MICROWAVE = { x: 1180, y: 510 }; // chỗ đứng trước lò vi sóng
+  const HEAT_MS = 5000;                  // quay cơm 5 giây
 
   // ---------- Lưu trữ local ----------
   const store = {
@@ -180,6 +182,7 @@
   let boss = null;              // { start, dur } — sếp đang đi tuần
   let bossCaughtMe = false;     // mỗi lượt đi tuần chỉ bắt một lần
   let offerings = [];           // lễ vật trên bàn thờ (server gửi xuống)
+  let myReviews = [];           // review đồng nghiệp viết về mình (server gửi xuống)
   let started = false;
   let scene = 'temple'; // 'temple' | 'office'
   let templeName = DEFAULT_NAME;
@@ -385,6 +388,7 @@
       if (b.elapsed < 1000) toast('⚠️ Sếp đang đi tuần! Mau về bàn ngồi làm việc.', 5000);
     });
     es.addEventListener('offerings', function (ev) { offerings = JSON.parse(ev.data); });
+    es.addEventListener('reviews', function (ev) { onReviews(JSON.parse(ev.data)); });
     es.addEventListener('gift', function (ev) {
       const g = JSON.parse(ev.data);
       const it = ITEM_BY_ID.get(g.item);
@@ -418,7 +422,7 @@
       id: me.id, name: me.name, scene: scene,
       x: Math.round(me.x), y: Math.round(me.y),
       dir: me.dir, pose: me.pose, days: me.days, gender: me.gender, wear: me.wear,
-      stress: me.stress, caught: Date.now() < me.caughtUntil,
+      stress: me.stress, caught: Date.now() < me.caughtUntil, heating: me.heatUntil > Date.now(),
       food: me.pose === 'eat' ? me.food : undefined,
       lotus: Date.now() < (me.lotusUntil || 0),
     };
@@ -444,6 +448,10 @@
     slaps.clear();
     boss = null;
     offerings = [];
+    myReviews = [];
+    reviewsBaseline = false;
+    updateReviewBadge();
+    me.heatUntil = 0;
     tasks = [];
     updateTaskBadge();
     keys.clear();
@@ -515,6 +523,24 @@
     addStress(-3);
     toast('☕ Nhâm nhi cà phê cho tỉnh táo…');
   });
+
+  // Quay cơm: đứng gần lò vi sóng → chờ 8 giây → "Ting!" → ngồi ăn cơm hộp.
+  $('btn-microwave').addEventListener('click', function () {
+    if (Math.hypot(me.x - MICROWAVE.x, me.y - MICROWAVE.y) > 70) { toast('Đến gần lò vi sóng trong pantry mới quay cơm được.'); return; }
+    if (me.heatUntil > Date.now()) return;
+    setPose('stand');
+    me.heatUntil = Date.now() + HEAT_MS;
+    toast('🍱 Đang quay cơm… đứng chờ ' + HEAT_MS / 1000 + ' giây nhé.');
+  });
+  function finishHeating() {
+    me.heatUntil = 0;
+    synth.ding();
+    toast('🔔 Ting! Cơm nóng rồi, ăn thôi.');
+    me.food = 'comhop';
+    me.eatUntil = Date.now() + EAT_MS;
+    setPose('eat');
+    addStress(-3);
+  }
 
   // Đi ngủ: phải đến gần bàn làm việc → nằm dưới gầm bàn.
   $('btn-sleep').addEventListener('click', function () {
@@ -695,6 +721,119 @@
     switchScene('temple');
   });
   $('repent-no').addEventListener('click', function () { $('repent').classList.add('hidden'); });
+
+  // ---------- Review đồng nghiệp ----------
+  function stars(n) { return '★★★★★'.slice(0, n) + '☆☆☆☆☆'.slice(0, 5 - n); }
+  // Review mẫu cho vui / để xem thử giao diện — đặt false để tắt.
+  const SHOW_FAKE_REVIEWS = true;
+  const FAKE_REVIEWS = [
+    { fromName: 'Sếp Tổng', stars: 2, text: 'Hay ngủ gật dưới gầm bàn, cần cải thiện.', ago: 5 },
+    { fromName: 'Chị Kế toán', stars: 5, text: 'Nộp hóa đơn đúng hạn, nói chuyện dễ thương.', ago: 32 },
+    { fromName: 'Anh IT', stars: 4, text: 'Biết tự khởi động lại máy trước khi gọi IT. Hiếm có!', ago: 75 },
+    { fromName: 'Em thực tập', stars: 5, text: 'Hay mua trà sữa cho cả phòng 🧋', ago: 120 },
+    { fromName: 'Trưởng phòng', stars: 3, text: 'KPI tạm ổn, quay cơm hơi lâu.', ago: 240 },
+  ];
+  function allReviews() {
+    const fake = SHOW_FAKE_REVIEWS ? FAKE_REVIEWS.map(function (r) {
+      return { fromName: r.fromName, stars: r.stars, text: r.text, at: Date.now() - r.ago * 60000 };
+    }) : [];
+    return myReviews.concat(fake);
+  }
+
+  let reviewsBaseline = false; // lần nhận đầu sau khi vào văn phòng chỉ để nạp danh sách, không báo
+  function onReviews(list) {
+    if (reviewsBaseline) {
+      const prev = new Map(myReviews.map(function (r) { return [r.from, r.at]; }));
+      list.forEach(function (r) {
+        if (prev.get(r.from) === r.at) return;
+        toast(r.fromName + ' vừa review bạn ' + stars(r.stars) + (r.text ? ': ' + r.text : ''), 6000);
+        if (r.stars <= 2) addStress(10);
+      });
+    }
+    reviewsBaseline = true;
+    myReviews = list;
+    updateReviewBadge();
+    if (!$('myreviews').classList.contains('hidden')) renderMyReviews();
+  }
+  function updateReviewBadge() { $('review-count').textContent = allReviews().length; }
+
+  let reviewStars = 5;
+  function paintStars() {
+    document.querySelectorAll('#rv-stars button').forEach(function (b) {
+      b.classList.toggle('on', Number(b.dataset.n) <= reviewStars);
+    });
+  }
+  document.querySelectorAll('#rv-stars button').forEach(function (b) {
+    b.addEventListener('click', function () { reviewStars = Number(b.dataset.n); paintStars(); });
+  });
+  $('btn-review').addEventListener('click', function () {
+    if (others.size === 0) { toast('Chưa có đồng nghiệp nào trong văn phòng.'); return; }
+    const sel = $('rv-to');
+    sel.textContent = '';
+    others.forEach(function (o, id) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = o.name || DEFAULT_OFFICE_NAME;
+      sel.appendChild(opt);
+    });
+    reviewStars = 5;
+    paintStars();
+    $('rv-text').value = '';
+    $('rv').classList.remove('hidden');
+    keys.clear();
+  });
+  $('rv-close').addEventListener('click', function () { $('rv').classList.add('hidden'); });
+  $('rv-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const to = $('rv-to').value;
+    if (!to) return;
+    const o = others.get(to);
+    post('/api/review', { id: me.id, to: to, stars: reviewStars, text: $('rv-text').value.trim().slice(0, 200) }).then(function (r) {
+      if (r && r.ok) toast('Đã review ' + (o ? o.name : DEFAULT_OFFICE_NAME) + ' ' + stars(reviewStars) + '.');
+      else toast('Chưa gửi được review — thử lại sau giây lát.');
+    });
+    $('rv-text').blur();
+    $('rv').classList.add('hidden');
+  });
+
+  function renderMyReviews() {
+    const list = $('myreviews-list');
+    list.textContent = '';
+    const reviews = allReviews();
+    if (!reviews.length) {
+      $('myreviews-avg').textContent = 'Chưa có ai review bạn.';
+      return;
+    }
+    const avg = reviews.reduce(function (s, r) { return s + r.stars; }, 0) / reviews.length;
+    $('myreviews-avg').textContent = 'Trung bình ' + avg.toFixed(1) + ' / 5 ' + stars(Math.round(avg)) + ' · ' + reviews.length + ' review';
+    reviews.sort(function (a, b) { return b.at - a.at; }).forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'task-row';
+      const info = document.createElement('div');
+      info.className = 'task-info';
+      const head = document.createElement('div');
+      head.className = 'task-from';
+      head.textContent = r.fromName + ' · ' + new Date(r.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      const st = document.createElement('div');
+      st.className = 'rv-stars-text';
+      st.textContent = stars(r.stars);
+      info.appendChild(head);
+      info.appendChild(st);
+      if (r.text) {
+        const tx = document.createElement('div');
+        tx.textContent = r.text;
+        info.appendChild(tx);
+      }
+      row.appendChild(info);
+      list.appendChild(row);
+    });
+  }
+  $('btn-myreviews').addEventListener('click', function () {
+    renderMyReviews();
+    $('myreviews').classList.remove('hidden');
+    keys.clear();
+  });
+  $('myreviews-close').addEventListener('click', function () { $('myreviews').classList.add('hidden'); });
 
   // ---------- Stress & lương ----------
   // Stress: đi làm tăng dần, bị nói xấu/tát/bắt làm lại/bị sếp bắt tăng mạnh; chỉ ở chùa mới giảm.
@@ -897,6 +1036,13 @@
       stop: function () {
         if (timer) clearInterval(timer);
         timer = null;
+      },
+      // Tiếng "ting" của lò vi sóng (không phụ thuộc nhạc nền đang bật hay tắt).
+      ding: function () {
+        if (!ac) return;
+        if (ac.resume) ac.resume();
+        tone(1568, 0.9, 0.18, 'sine');
+        tone(2093, 0.7, 0.08, 'sine');
       },
     };
   })();
@@ -1287,6 +1433,7 @@
       // Bị kẹt sau vật cản khi đi bằng chạm → dừng lại.
       if (me.target && Math.hypot(me.x - ox, me.y - oy) < SPEED * dt * 0.2) me.target = null;
       if (Math.abs(vx) > 0.1) me.dir = vx > 0 ? 1 : -1;
+      if (me.heatUntil) { me.heatUntil = 0; toast('Bỏ dở quay cơm rồi.'); }
       if (me.pose !== 'walk') {
         me.pose = 'walk';
         document.querySelectorAll('[data-pose], #btn-eat, #btn-sleep').forEach(function (b) { b.classList.remove('active'); });
@@ -1296,6 +1443,7 @@
     } else if (me.pose === 'eat' && Date.now() >= me.eatUntil) {
       setPose('sit'); // ăn xong vẫn ngồi
     }
+    if (me.heatUntil && Date.now() >= me.heatUntil) finishHeating();
 
     const k = Math.min(1, dt * 10);
     others.forEach(function (o) {
@@ -1770,7 +1918,7 @@
   }
 
   // Quầy pantry: máy cà phê, bình nước, lò vi sóng, tủ lạnh.
-  function drawPantryCounter() {
+  function drawPantryCounter(t, mwOn, mwLeft) {
     ctx.fillStyle = '#dfe5ea';
     ctx.fillRect(1270, 360, 60, 132);                       // tủ lạnh
     ctx.strokeStyle = '#aab4bd';
@@ -1796,8 +1944,24 @@
     ctx.fillRect(1072, 426, 36, 14);
     ctx.fillStyle = '#3a3f45';
     ctx.fillRect(1150, 410, 60, 30);                         // lò vi sóng
-    ctx.fillStyle = '#7fa6c4';
+    ctx.fillStyle = mwOn ? '#ffd76a' : '#7fa6c4';
     ctx.fillRect(1156, 415, 36, 20);
+    if (mwOn) {
+      ctx.fillStyle = '#e8eef3';                             // đĩa xoay
+      ctx.beginPath(); ctx.ellipse(1174, 431, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.arc(1174 + Math.cos(t / 300) * 8, 429, 3, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createRadialGradient(1174, 425, 2, 1174, 425, 30);
+      g.addColorStop(0, 'rgba(255,215,106,.45)');
+      g.addColorStop(1, 'rgba(255,215,106,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(1174, 425, 30, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = mwOn ? '#7dff9a' : '#55606b';          // màn hình giờ
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(mwLeft > 0 ? '0:0' + Math.ceil(mwLeft / 1000) : '--', 1201, 425);
   }
 
   function drawRoundTable() {
@@ -2250,7 +2414,7 @@
       const ph = ((t + (p.seed || 0) * 2000) % 2000) / 2000;
       const lift = ph < 0.25 ? ph / 0.25 : ph < 0.45 ? 1 : ph < 0.7 ? 1 - (ph - 0.45) / 0.25 : 0;
       const fy = -16 - lift * 24;
-      const food = FOODS.concat(DRINKS).find(function (f) { return f.id === p.food; }) || FOODS[0];
+      const food = FOODS.concat(PANTRY_FOODS).find(function (f) { return f.id === p.food; }) || FOODS[0];
       ctx.fillStyle = SKIN;
       ctx.beginPath(); ctx.ellipse(0, fy + 6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.font = '16px sans-serif';
@@ -2548,7 +2712,10 @@
       DESKS.forEach(function (d) { items.push({ y: d.y, draw: function () { drawDesk(d); } }); });
       CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
       PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
-      items.push({ y: 492, draw: drawPantryCounter });
+      const mwLeft = Math.max(0, (me.heatUntil || 0) - Date.now());
+      let mwOn = mwLeft > 0;
+      others.forEach(function (o) { if (o.heating) mwOn = true; });
+      items.push({ y: 492, draw: function () { drawPantryCounter(now, mwOn, mwLeft); } });
       items.push({ y: ROUND_TABLE.y, draw: drawRoundTable });
       items.push({ y: MEET_TABLE.y, draw: drawMeetTable });
       items.push({ y: 836, draw: drawMeetSign });

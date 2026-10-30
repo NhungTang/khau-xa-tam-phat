@@ -41,6 +41,9 @@
         <button id="btn-offer" class="pill temple-only" title="Dâng lễ"><span class="ic">🙏</span><span class="label">Dâng lễ</span></button>
         <button id="btn-shop" class="pill temple-only" title="Đổi quà"><span class="ic">🎁</span><span class="label">Đổi quà</span> <span id="points" class="count">0</span></button>
         <button id="btn-rack" class="pill temple-only" title="Kệ dép"><span class="ic">👡</span><span class="label">Kệ dép</span></button>
+        <button id="btn-restaurant" class="pill no-restaurant" title="Nhà hàng"><span class="ic">🍜</span><span class="label">Nhà hàng</span></button>
+        <button id="btn-rest-temple" class="pill restaurant-only" title="Đi chùa"><span class="ic">卍</span><span class="label">Đi chùa</span></button>
+        <button id="btn-rest-work" class="pill restaurant-only" title="Đi làm"><span class="ic">💼</span><span class="label">Đi làm</span></button>
         <button id="btn-work" class="pill temple-only" title="Đi làm"><span class="ic">💼</span><span class="label">Đi làm</span></button>
         <button id="btn-temple" class="pill office-only" title="Đi chùa"><span class="ic">卍</span><span class="label">Đi chùa</span></button>
         <button id="btn-assign" class="pill office-only" title="Giao task"><span class="ic">📋</span><span class="label">Giao task</span></button>
@@ -55,6 +58,8 @@
   <footer id="bottombar" class="hidden">
     <div class="poses">
       <button data-pose="sit" title="Ngồi">Ngồi</button>
+      <button id="btn-dine" class="restaurant-only" title="Ăn">Ăn</button>
+      <button id="btn-menu" class="restaurant-only" title="Menu">Menu</button>
       <button id="btn-slap" class="office-only" title="Tát">Tát</button>
       <button id="btn-sleep" class="office-only" title="Ngủ">Ngủ</button>
       <button id="btn-coffee" class="office-only" title="Cà phê">Cà phê</button>
@@ -292,6 +297,35 @@
         <button id="repent-yes" class="primary">Đồng ý</button>
         <button id="repent-no">Để sau</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Nhà hàng: menu gọi món -->
+  <div id="menu" class="overlay hidden">
+    <div class="card wide">
+      <button class="close" id="menu-close" aria-label="Đóng">✕</button>
+      <h2>Thực đơn Quán Chiếc Thúng</h2>
+      <p class="sub">Lương hiện có: <b id="menu-salary">0</b>k · ngồi vào bàn rồi gọi món, chị Liễu sẽ mang ra bàn bạn</p>
+      <div id="menu-items" class="shop-grid"></div>
+    </div>
+  </div>
+
+  <!-- Nhà hàng: chọn món trên bàn để ăn -->
+  <div id="dine" class="overlay hidden">
+    <div class="card">
+      <button class="close" id="dine-close" aria-label="Đóng">✕</button>
+      <h2>Ăn món gì?</h2>
+      <p class="sub" id="dine-sub"></p>
+      <div id="dine-list" class="music-list"></div>
+    </div>
+  </div>
+
+  <!-- Khu đã kín người -->
+  <div id="full" class="overlay hidden">
+    <div class="card">
+      <h2>Đã kín người</h2>
+      <p class="quiz-question">Chỗ này đã kín người, bạn có thể chọn đi qua khu vực khác.</p>
+      <div id="full-list" class="music-list"></div>
     </div>
   </div>
 

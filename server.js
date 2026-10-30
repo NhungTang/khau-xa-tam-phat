@@ -1,4 +1,4 @@
-// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime; mọi người chung một chùa và một văn phòng.
+// Khẩu Xà Tâm Phật — server tĩnh + đồng bộ realtime; mọi người chung một chùa, một văn phòng, một nhà hàng.
 // Không phụ thuộc thư viện ngoài: Server-Sent Events cho chiều xuống, POST JSON cho chiều lên.
 'use strict';
 
@@ -12,7 +12,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const STALE_MS = 15000;
 const TICK_MS = 100;
 const MAX_BODY = 4096;
-const MAX_PER_ROOM = 30;
+const MAX_PER_ROOM = 60;                   // mỗi khu (chùa / công ty / nhà hàng) tối đa 60 người
 const MAX_TASKS_PER_ROOM = 300;
 const TASK_TTL_MS = 24 * 60 * 60 * 1000; // task cũ hơn 1 ngày tự xoá
 const BOSS_WALK_MS = 20000;                // sếp đi ngang văn phòng trong 20 giây
@@ -22,6 +22,11 @@ const MAX_OFFERINGS = 12;
 const OFFERING_IDS = ['nen', 'tra', 'hoa', 'den', 'qua'];
 const RACK_SIZE = 60;                      // kệ dép ngoài cửa chùa
 const SHOE_IDS = ['deptoong', 'depda', 'haivang'];
+// Nhà hàng: món trong menu (giá tính ở client, trả bằng lương), 2 bàn ăn.
+const MENU_IDS = ['comtrang', 'trungran', 'raumuong', 'dauphu', 'nemran', 'canhchua', 'thitkho', 'cakho', 'suonxao', 'galuoc', 'bunhen', 'lauriebo', 'laurieubau'];
+const REST_TABLES = [{ x: 420, y: 720 }, { x: 980, y: 720 }];
+const DISH_PREP_MS = 4000;                 // phục vụ mang món ra trong 4 giây
+const MAX_DISHES_PER_TABLE = 10;         // tối đa 10 món một bàn (được gọi trùng món)
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -41,7 +46,7 @@ const rooms = new Map();
 
 // Chỉ có hai cảnh: chùa (mặc định) và công sở.
 function cleanScene(s) {
-  return s === 'office' ? 'office' : 'temple';
+  return s === 'office' || s === 'restaurant' ? s : 'temple';
 }
 
 // Mọi người (ở mạng nào cũng vậy) chung một chùa và một văn phòng.
@@ -53,7 +58,7 @@ function getRoom(key) {
   let room = rooms.get(key);
   if (!room) {
     room = { players: new Map(), clients: new Map(), tasks: new Map(), nextTaskId: 1, offerings: [], reviews: new Map(),
-      rack: new Array(RACK_SIZE).fill(null) };
+      rack: new Array(RACK_SIZE).fill(null), dishes: [], nextDishId: 1 };
     rooms.set(key, room);
   }
   return room;
@@ -123,6 +128,8 @@ function handleEvents(req, res, url) {
     send(res, 'tasks', taskList(room));
     send(res, 'reviews', reviewsFor(room, id));
     if (bossActive(room, Date.now())) send(res, 'boss', { elapsed: Date.now() - room.boss.start, dur: room.boss.dur });
+  } else if (cleanScene(url.searchParams.get('scene')) === 'restaurant') {
+    send(res, 'dishes', dishView(room));
   } else {
     send(res, 'offerings', room.offerings);
     send(res, 'rack', room.rack);
@@ -136,6 +143,11 @@ function handleEvents(req, res, url) {
       if (slot >= 0) {
         room.rack[slot] = null;
         broadcast(room, 'rack', room.rack);
+      }
+      const kept = room.dishes.filter(function (d) { return d.buyer !== id; });
+      if (kept.length !== room.dishes.length) {
+        room.dishes = kept;
+        broadcast(room, 'dishes', dishView(room));
       }
     }
   });
@@ -173,6 +185,7 @@ function handleState(req, res) {
       lastOffer: prev.lastOffer || 0,
       lastReview: prev.lastReview || 0,
       stoleDay: prev.stoleDay || '',
+      lastOrder: prev.lastOrder || 0,
     });
     json(res, 200, { ok: true });
   });
@@ -284,6 +297,61 @@ function handleOffer(req, res) {
     if (room.offerings.length > MAX_OFFERINGS) room.offerings.shift();
     broadcast(room, 'offerings', room.offerings);
     json(res, 200, { ok: true });
+  });
+}
+
+// ---------- Số người mỗi khu (để báo "đã kín người") ----------
+function handleRoomInfo(req, res, url) {
+  const room = rooms.get(roomKeyFor(req, url.searchParams.get('scene')));
+  const count = room ? room.clients.size : 0;
+  json(res, 200, { count: count, max: MAX_PER_ROOM, full: count >= MAX_PER_ROOM });
+}
+
+// ---------- Nhà hàng: gọi món / ăn ----------
+// Món nằm trên bàn của người gọi; biến mất khi có người ăn hoặc người gọi rời nhà hàng.
+function dishView(room) {
+  const now = Date.now();
+  return room.dishes.map(function (d) {
+    return { id: d.id, dish: d.dish, table: d.table, buyer: d.buyer, buyerName: d.buyerName, age: now - d.at, prep: DISH_PREP_MS };
+  });
+}
+function atTable(p, table) {
+  const t = REST_TABLES[table];
+  return t && Math.hypot(p.x - t.x, p.y - t.y) < 180;
+}
+function handleOrder(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    const dish = b && MENU_IDS.indexOf(b.dish) >= 0 ? b.dish : null;
+    const table = b && Number(b.table);
+    if (!id || !dish || !(table === 0 || table === 1)) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'restaurant'));
+    const p = room.players.get(id);
+    const now = Date.now();
+    if (!p) return json(res, 409, { error: 'not connected' });
+    if (!atTable(p, table)) return json(res, 409, { error: 'not at table' });
+    if (now - p.lastOrder < 1000) return json(res, 429, { error: 'slow down' });
+    if (room.dishes.filter(function (d) { return d.table === table; }).length >= MAX_DISHES_PER_TABLE) return json(res, 409, { error: 'table full' });
+    p.lastOrder = now;
+    room.dishes.push({ id: String(room.nextDishId++), dish: dish, table: table, buyer: id, buyerName: p.name, at: now });
+    broadcast(room, 'dishes', dishView(room));
+    json(res, 200, { ok: true });
+  });
+}
+function handleEat(req, res) {
+  readJson(req, function (b) {
+    const id = b && cleanId(b.id);
+    if (!id) return json(res, 400, { error: 'bad body' });
+    const room = getRoom(roomKeyFor(req, 'restaurant'));
+    const p = room.players.get(id);
+    const i = room.dishes.findIndex(function (d) { return d.id === String(b.dish); });
+    const d = room.dishes[i];
+    if (!p || !d) return json(res, 409, { error: 'gone' });
+    if (!atTable(p, d.table)) return json(res, 409, { error: 'not at table' });
+    if (Date.now() - d.at < DISH_PREP_MS) return json(res, 409, { error: 'not ready' });
+    room.dishes.splice(i, 1);
+    broadcast(room, 'dishes', dishView(room));
+    json(res, 200, { ok: true, dish: d.dish });
   });
 }
 
@@ -488,6 +556,9 @@ function route(req, res) {
   let url;
   try { url = new URL(req.url, 'http://localhost'); } catch (e) { res.writeHead(400); return res.end(); }
   if (url.pathname === '/api/events' && req.method === 'GET') return handleEvents(req, res, url);
+  if (url.pathname === '/api/room' && req.method === 'GET') return handleRoomInfo(req, res, url);
+  if (url.pathname === '/api/rest/order' && req.method === 'POST') return handleOrder(req, res);
+  if (url.pathname === '/api/rest/eat' && req.method === 'POST') return handleEat(req, res);
   if (url.pathname === '/api/state' && req.method === 'POST') return handleState(req, res);
   if (url.pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res);
   if (url.pathname === '/api/badmouth' && req.method === 'POST') return handleBadmouth(req, res);

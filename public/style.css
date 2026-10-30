@@ -112,7 +112,8 @@ input, textarea {
   text-align: center;
 }
 /* Nút chỉ hiện ở chùa / chỉ hiện ở văn phòng */
-body.office .temple-only, body:not(.office) .office-only { display: none !important; }
+body.office .temple-only, body.restaurant .temple-only, body:not(.office) .office-only,
+body:not(.restaurant) .restaurant-only, body.restaurant .no-restaurant { display: none !important; }
 #online {
   display: inline-flex;
   align-items: center;
@@ -331,6 +332,10 @@ select {
   max-height: 60vh;
   overflow-y: auto;
 }
+.dish-ic { width: 76px; height: 52px; }
+.dish-ic.small { width: 46px; height: 32px; vertical-align: middle; margin-right: 8px; }
+.dine-item { display: flex; align-items: center; flex-wrap: wrap; }
+.dine-item .music-credit { flex-basis: 100%; margin-left: 54px; }
 .music-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .music-item { text-align: left; padding: 10px 12px; }
 .music-item.active { background: var(--gold); color: var(--ink); font-weight: 700; }
@@ -377,3 +382,6 @@ select {
 @media (max-width: 600px) {
   .rack-grid { grid-template-columns: repeat(6, 1fr); }
 }
+
+/* Popup Task của tôi rộng gấp đôi (380px → 760px) */
+#mytasks .card { max-width: 760px; }

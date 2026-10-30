@@ -31,8 +31,8 @@ phải ghi nguồn, không chỉnh sửa file. Danh sách chi tiết: `public/as
 - **Nhân vật**: đầu tròn, áo lam, không tóc/mặt; đi lại (phím mũi tên/WASD hoặc chạm nền),
   Ngồi / Quỳ / Lạy (nút dưới màn hình hoặc phím 2–4); đi lại là tự đứng dậy.
 - **Chat**: Enter để gõ, chữ hiện trên đầu 10 giây.
-- **Mọi người chơi chung**: ai vào app (ở mạng nào cũng vậy) đều chung một chùa và một văn phòng
-  (tối đa 30 người mỗi nơi).
+- **Mọi người chơi chung**: ai vào app (ở mạng nào cũng vậy) đều chung một chùa, một văn phòng và một nhà hàng
+  (tối đa 60 người mỗi nơi; kín thì được mời sang khu khác).
 - **Nhiệm vụ hằng ngày — chép kinh**: mỗi ngày một bài (xoay vòng). Chép đúng từng ký tự
   (không cho dán) → hoàn thành. Điểm hiện trên áo, mọi người đều thấy.
   Dữ liệu chỉ lưu ở máy người dùng — xoá dữ liệu trình duyệt là mất hết.

@@ -111,11 +111,11 @@
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
-  // Mỗi lần chép đúng chuyển sang bài kế tiếp; ngày mới bắt đầu từ bài của ngày.
-  function todaySutra() {
+  // Bài gợi ý khi mở chép kinh: xoay vòng theo ngày và số bài đã chép hôm nay.
+  function todaySutraIndex() {
     const d = new Date();
     const dayNo = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
-    return window.SUTRAS[(dayNo + copiesToday()) % window.SUTRAS.length];
+    return (dayNo + copiesToday()) % window.SUTRAS.length;
   }
   function copiesToday() {
     let c = null;
@@ -781,8 +781,12 @@
     sutraStatus.className = cls || '';
   }
 
-  function openSutra() {
-    currentSutra = todaySutra();
+  // idx: bài user chọn; bỏ trống → bài gợi ý.
+  let sutraIdx = 0;
+  function openSutra(idx) {
+    sutraIdx = typeof idx === 'number' ? idx : todaySutraIndex();
+    currentSutra = window.SUTRAS[sutraIdx];
+    $('sutra-pick').value = String(sutraIdx);
     $('sutra-title').textContent = currentSutra.title;
     $('sutra-text').textContent = currentSutra.text;
     $('sutra-meta').textContent = 'Điểm: ' + getPoints() + ' · Hôm nay đã chép ' + copiesToday() + ' bài · ' + todayStr();
@@ -790,12 +794,22 @@
     try { draft = JSON.parse(store.get(K.draft) || 'null'); } catch (e) { /* bỏ qua */ }
     sutraInput.value = draft && draft.date === todayStr() && draft.title === currentSutra.title ? draft.text : '';
     sutraDone = false;
-    setStatus('Chép đúng mỗi bài được cộng 1 điểm.');
+    setStatus('Chép đúng bài này được +' + sutraPoints(currentSutra) + ' điểm.');
     sutraInput.disabled = false;
     $('sutra-check').textContent = 'Kiểm tra';
     $('sutra').classList.remove('hidden');
     keys.clear();
   }
+
+  // Điểm theo độ dài bài: khoảng 60 ký tự được 1 điểm, ít nhất 1 điểm.
+  function sutraPoints(s) { return Math.max(1, Math.round(normalize(s.text).length / 60)); }
+  window.SUTRAS.forEach(function (s, i) {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = s.title + ' — +' + sutraPoints(s) + ' điểm';
+    $('sutra-pick').appendChild(o);
+  });
+  $('sutra-pick').addEventListener('change', function () { openSutra(Number(this.value)); });
 
   $('btn-sutra').addEventListener('click', openSutra);
   $('sutra-close').addEventListener('click', function () {
@@ -1009,17 +1023,18 @@
 
   let sutraDone = false;
   $('sutra-check').addEventListener('click', function () {
-    if (sutraDone) { openSutra(); return; } // "Chép bài tiếp"
+    if (sutraDone) { openSutra((sutraIdx + 1) % window.SUTRAS.length); return; } // "Chép bài tiếp"
     const want = normalize(currentSutra.text);
     const got = normalize(sutraInput.value);
     if (got === want) {
       store.set(K.copies, JSON.stringify({ date: todayStr(), n: copiesToday() + 1 }));
       store.del(K.draft);
-      setPoints(getPoints() + 1);
+      const gain = sutraPoints(currentSutra);
+      setPoints(getPoints() + gain);
       me.lotusUntil = Date.now() + LOTUS_MS;
       quizPending = true;
       sutraDone = true;
-      setStatus('🙏 Viên mãn! +1 điểm — bạn đang có ' + getPoints() + ' điểm.', 'ok');
+      setStatus('🙏 Viên mãn! +' + gain + ' điểm — bạn đang có ' + getPoints() + ' điểm.', 'ok');
       sutraInput.disabled = true;
       $('sutra-check').textContent = 'Chép bài tiếp';
       updateSutraBadge();

@@ -41,7 +41,7 @@ button {
   background: rgba(59, 36, 20, .85);
   color: var(--gold-soft);
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 10px 12px;
 }
 button:hover { background: rgba(90, 53, 25, .95); }
 button.primary {
@@ -68,16 +68,17 @@ input, textarea {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  padding-top: max(8px, env(safe-area-inset-top));
+  gap: 12px;
+  padding: 14px 20px;
+  padding-top: max(14px, env(safe-area-inset-top));
   background: linear-gradient(rgba(42, 23, 12, .9), rgba(42, 23, 12, 0));
   pointer-events: none;
 }
 #topbar > * { pointer-events: auto; }
-.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 32px; }
-.top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.top-row { display: flex; align-items: center; gap: 8px; }
+.brand { color: var(--gold); font-weight: 700; letter-spacing: .5px; white-space: nowrap; line-height: 36px; }
+.top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.top-row { display: flex; align-items: center; gap: 10px; }
+#btn-sutra, #btn-eat { width: 100%; }
 #online {
   display: inline-flex;
   align-items: center;
@@ -88,8 +89,8 @@ input, textarea {
   border: 1px solid rgba(232, 182, 76, .55);
   background: rgba(59, 36, 20, .85);
 }
-.pill { border-radius: 999px; padding: 6px 12px; }
-.pill.icon { padding: 6px 10px; display: inline-flex; align-items: center; }
+.pill { border-radius: 999px; padding: 10px 14px; }
+.pill.icon { padding: 8px 12px; display: inline-flex; align-items: center; }
 .ico {
   width: 18px;
   height: 18px;
@@ -111,14 +112,14 @@ input, textarea {
   left: 0; right: 0; bottom: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: 14px 20px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
   background: linear-gradient(rgba(42, 23, 12, 0), rgba(42, 23, 12, .92));
 }
-.poses { display: flex; gap: 6px; }
-#chat-form { display: flex; gap: 6px; flex: 1; min-width: 220px; }
-#chat-form input { padding: 8px 12px; }
+.poses { display: flex; gap: 10px; }
+#chat-form { display: flex; gap: 10px; flex: 1; min-width: 220px; }
+#chat-form input { padding: 10px 14px; }
 
 .overlay {
   position: fixed;
@@ -187,12 +188,12 @@ input, textarea {
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
-.food-list button { display: flex; align-items: center; gap: 8px; padding: 10px; text-align: left; }
+.food-list button { display: flex; align-items: center; gap: 8px; padding: 12px 14px; text-align: left; }
 .food-list .emoji { font-size: 24px; }
 
 .quiz-question { font-size: 17px; line-height: 1.5; text-align: center; margin: 14px 0; }
 .quiz-choices { display: flex; gap: 10px; }
-.quiz-choices button { flex: 1; padding: 12px; font-size: 16px; }
+.quiz-choices button { flex: 1; padding: 14px; font-size: 16px; }
 #quiz-answer { text-align: center; line-height: 1.5; margin: 0; white-space: pre-line; }
 #quiz-answer.ok { color: var(--ok); font-weight: 600; }
 #quiz-answer.err { color: var(--err); }
@@ -217,6 +218,6 @@ input, textarea {
   .brand { font-size: 14px; }
   #online { display: none; }
   .poses { width: 100%; }
-  .poses button { flex: 1; padding: 8px 4px; }
+  .poses button { flex: 1; padding: 10px 4px; }
   #chat-form { min-width: 0; width: 100%; }
 }

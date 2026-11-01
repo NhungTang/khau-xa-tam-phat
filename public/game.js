@@ -2395,23 +2395,28 @@
       : IS_TOUCH && ch < 600 ? ch / 500
       : Math.min(cw / 900, ch / 640);
     scale = clamp(fit, 0.55, 1.6);
-    const bar = document.getElementById('bottombar');
-    barH = bar ? bar.offsetHeight : 0;
   }
   window.addEventListener('resize', resize);
   resize();
+  // Đo lại thanh dưới mỗi khi nó hiện ra / đổi cỡ (lúc tải trang nó còn ẩn sau màn nhập tên nên cao 0)
+  const bottomBar = document.getElementById('bottombar');
+  const measureBar = function () { barH = bottomBar ? bottomBar.offsetHeight : 0; };
+  if (bottomBar && window.ResizeObserver) new ResizeObserver(measureBar).observe(bottomBar);
   // iPhone: bàn phím bật thì trình duyệt cuộn trang lên cho thấy ô nhập → lộ nền trắng dưới trang, mất thanh trên.
   // Giữ trang không cuộn, thu khung game theo phần màn hình còn thấy và đặt thanh chat ngay trên bàn phím.
   if (window.visualViewport) {
     const vv = window.visualViewport;
     const fitKeyboard = function () {
-      if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
-      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); // phần bị bàn phím che
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height)); // phần bị bàn phím che (đo trước khi cuộn về)
       document.documentElement.style.setProperty('--kb', kb + 'px');
+      if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
       resize();
     };
     vv.addEventListener('resize', fitKeyboard);
     vv.addEventListener('scroll', fitKeyboard);
+    // trình duyệt trong Messenger đôi khi báo đổi cỡ chậm: đo lại sau khi bấm vào / rời ô nhập
+    document.addEventListener('focusin', function () { setTimeout(fitKeyboard, 350); });
+    document.addEventListener('focusout', function () { setTimeout(fitKeyboard, 350); });
   }
 
   function updateCamera() {
@@ -2424,6 +2429,7 @@
       ? Math.min(me.y - vh * 0.62, Math.max(STATUE_TOP - 60, me.y - vh * 0.75))
       : me.y - vh * 0.62;
     // cho cuộn quá đáy bản đồ một đoạn bằng thanh dưới, để đi sát đáy không bị ô chat che người
+    if (!window.ResizeObserver) barH = bottomBar ? bottomBar.offsetHeight : 0; // trình duyệt cũ: đo mỗi khung hình
     camY = vh >= H ? (H - vh) / 2 : clamp(followY, 0, H - vh + barH / scale);
   }
   function screenToWorld(sx, sy) {

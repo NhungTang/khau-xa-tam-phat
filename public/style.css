@@ -19,8 +19,42 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--paper);
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Noto Color Emoji";
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;          /* không kéo/nảy cả trang khi vuốt */
+}
+
+/* Chạm nhanh vào nút không bị phóng to; giữ tay lâu không bôi đen chữ */
+button { touch-action: manipulation; }
+#topbar, #bottombar, #joystick { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+
+/* Cần điều khiển ảo */
+#joystick {
+  position: fixed;
+  left: 20px;
+  bottom: calc(130px + env(safe-area-inset-bottom));
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(42, 23, 12, .35);
+  border: 2px solid rgba(232, 182, 76, .5);
+  touch-action: none;
+  z-index: 5;
+  display: none;
+}
+#joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(232, 182, 76, .8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+@media (pointer: coarse) {
+  body.playing #joystick { display: block; }
 }
 
 #scene {
@@ -198,6 +232,8 @@ body:not(.restaurant) .restaurant-only, body.restaurant .no-restaurant { display
   font-size: 18px;
 }
 
+button, input, textarea, select { font-family: inherit; } /* nút, ô nhập cũng dùng emoji phẳng */
+
 .sutra-text {
   white-space: pre-wrap;
   font-family: inherit;
@@ -332,7 +368,7 @@ select {
   max-height: 60vh;
   overflow-y: auto;
 }
-.dish-ic { width: 76px; height: 52px; }
+.dish-ic { width: 76px; height: 52px; object-fit: contain; }
 .dish-ic.small { width: 46px; height: 32px; vertical-align: middle; margin-right: 8px; }
 .dine-item { display: flex; align-items: center; flex-wrap: wrap; }
 .dine-item .music-credit { flex-basis: 100%; margin-left: 54px; }
@@ -364,6 +400,8 @@ select {
 .shop-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px; }
 .shop-item .emoji { font-size: 28px; }
 .shoe-ic { display: inline-flex; }
+.pic-ic { display: inline-flex; vertical-align: middle; }
+.pic-ic img { width: 1.3em; height: 1.3em; display: block; } /* icon vật phẩm vẽ phẳng, to theo cỡ chữ emoji */
 .shoe-ic svg { width: 40px; height: 27px; }
 .inv-ic { font-size: 18px; vertical-align: middle; }
 .inv-ic.shoe-ic svg { width: 30px; height: 20px; vertical-align: middle; }

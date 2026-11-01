@@ -23,7 +23,7 @@ const OFFERING_IDS = ['nen', 'tra', 'hoa', 'den', 'qua'];
 const RACK_SIZE = 60;                      // kệ dép ngoài cửa chùa
 const SHOE_IDS = ['deptoong', 'depda', 'haivang'];
 // Nhà hàng: món trong menu (giá tính ở client, trả bằng lương), 2 bàn ăn.
-const MENU_IDS = ['comtrang', 'trungran', 'raumuong', 'dauphu', 'nemran', 'canhchua', 'thitkho', 'cakho', 'suonxao', 'galuoc', 'bunhen', 'lauriebo', 'laurieubau', 'banhxeo', 'lauthai', 'nomchanvit', 'banhtrang'];
+const MENU_IDS = ['comtrang', 'trungran', 'raumuong', 'dauphu', 'nemran', 'canhchua', 'thitkho', 'cakho', 'suonxao', 'galuoc', 'bunhen', 'lauriebo', 'laurieubau', 'banhxeo', 'lauthai', 'nomchanvit', 'banhtrang', 'sushi', 'vangdau'];
 const REST_TABLES = [{ x: 420, y: 720 }, { x: 980, y: 720 }];
 const DISH_PREP_MS = 4000;                 // phục vụ mang món ra trong 4 giây
 const MAX_DISHES_PER_TABLE = 10;         // tối đa 10 món một bàn (được gọi trùng món)
@@ -64,7 +64,7 @@ function getRoom(key) {
   return room;
 }
 
-const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow', 'eat', 'sleep', 'drink'];
+const POSES = ['stand', 'walk', 'sit', 'kneel', 'bow', 'eat', 'sleep', 'drink', 'bbq'];
 const ITEM_ID = /^[a-z]{1,12}$/;
 
 function clampNum(v, min, max, def) {
@@ -175,6 +175,8 @@ function handleState(req, res) {
       stress: Math.round(clampNum(b.stress, 0, 100, 0)),
       caught: b.caught === true,
       heating: b.heating === true,
+      face: ['d', 'u', 'l', 'r'].indexOf(b.face) >= 0 ? b.face : 'd', // hướng mặt: xuống/lên/trái/phải
+      grill: typeof b.grill === 'string' && ITEM_ID.test(b.grill) ? b.grill : undefined, // xiên đang nướng trên bếp BBQ
       wear: Array.isArray(b.wear) ? b.wear.filter(function (s) { return typeof s === 'string' && ITEM_ID.test(s); }).slice(0, 8) : [],
       seen: Date.now(),
       lastChat: prev.lastChat || 0,
@@ -503,11 +505,43 @@ function pipeFile(stream, res) {
   stream.pipe(res);
 }
 
+// Làm rối game.js khi chạy thật (đặt OBFUSCATE=1, vd. trên Render): đổi tên biến, mã hoá chuỗi,
+// để người chơi khó đọc code mà tự giải mã két dữ liệu. Chạy ở máy (không đặt biến) vẫn dùng code gốc.
+let obfuscatedGame = null;
+if (process.env.OBFUSCATE === '1') {
+  try {
+    const started = Date.now();
+    const JavaScriptObfuscator = require('javascript-obfuscator');
+    const src = fs.readFileSync(path.join(PUBLIC_DIR, 'game.js'), 'utf8');
+    obfuscatedGame = JavaScriptObfuscator.obfuscate(src, {
+      compact: true,
+      identifierNamesGenerator: 'hexadecimal',
+      renameGlobals: false,
+      stringArray: true,
+      stringArrayEncoding: ['base64'],
+      stringArrayThreshold: 1,          // mã hoá mọi chuỗi (tên khoá, chuỗi bí mật…)
+      splitStrings: true,
+      splitStringsChunkLength: 6,
+      transformObjectKeys: true,        // mã hoá cả tên thuộc tính (vd. bảng giới hạn trần)
+      controlFlowFlattening: false, // giữ game mượt
+      deadCodeInjection: false,
+      selfDefending: false,
+    }).getObfuscatedCode();
+    console.log('Đã làm rối game.js (' + (Date.now() - started) + 'ms)');
+  } catch (e) {
+    console.error('Không làm rối được game.js, dùng bản gốc:', e.message);
+  }
+}
+
 function serveStatic(req, res, url) {
   let rel;
   try { rel = decodeURIComponent(url.pathname); } catch (e) { res.writeHead(400); return res.end(); }
   if (rel.indexOf('\0') !== -1) { res.writeHead(400); return res.end(); }
   if (rel === '/') rel = '/index.html';
+  if (rel === '/game.js' && obfuscatedGame) {
+    res.writeHead(200, { 'Content-Type': MIME['.js'], 'Content-Length': Buffer.byteLength(obfuscatedGame) });
+    return res.end(req.method === 'HEAD' ? undefined : obfuscatedGame);
+  }
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (file.indexOf(PUBLIC_DIR + path.sep) !== 0) { res.writeHead(403); return res.end(); }
   fs.stat(file, function (err, st) {
@@ -599,7 +633,7 @@ setInterval(function () {
     if (room.clients.size === 0 && room.players.size === 0 && room.tasks.size === 0 && room.reviews.size === 0) { rooms.delete(key); return; }
     const list = [];
     room.players.forEach(function (p) {
-      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear, stress: p.stress, caught: p.caught, heating: p.heating });
+      list.push({ id: p.id, name: p.name, x: p.x, y: p.y, dir: p.dir, pose: p.pose, days: p.days, gender: p.gender, food: p.food, lotus: p.lotus, wear: p.wear, stress: p.stress, caught: p.caught, heating: p.heating, grill: p.grill, face: p.face });
     });
     const msg = 'event: snapshot\ndata: ' + JSON.stringify(list) + '\n\n';
     if (msg === room.lastSnapshot && now - room.lastSnapshotAt < 2000) return;

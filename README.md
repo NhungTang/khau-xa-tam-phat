@@ -9,11 +9,13 @@ npm start            # hoặc: node server.js
 # mở http://localhost:3000
 ```
 
-Không cần cài thư viện nào (Node ≥ 12).
+Chạy ở máy không cần cài thư viện (Node ≥ 12). Chỉ khi bật `OBFUSCATE=1` mới cần `npm install`
+(thư viện `javascript-obfuscator`; Render tự cài khi build).
 
 | Biến môi trường | Ý nghĩa |
 |---|---|
 | `PORT` | Cổng (mặc định `3000`) |
+| `OBFUSCATE=1` | Làm rối `game.js` lúc khởi động (đổi tên biến, mã hoá chuỗi) để người chơi khó đọc code mà sửa dữ liệu. Đặt trên Render; chạy ở máy để trống cho dễ sửa lỗi |
 
 ## Nhạc nền
 

@@ -65,12 +65,6 @@
     { id: 'depda', emoji: '👞', name: 'Dép Lào Thái', price: 10, slot: 'feet' },
     { id: 'haivang', emoji: '🥿', name: 'Dép Gucci', price: 25, slot: 'feet' },
   ];
-  // Màu áo [chính, viền, chữ số điểm] theo áo đang mặc.
-  const ROBE_STYLES = {
-    casa: ['#d98a1c', '#a8620f', '#ffffff'],
-    robebrown: ['#7a4a24', '#5a3418', '#ffffff'],
-    robewhite: ['#eeeae0', '#b9b2a0', '#5a4a3a'],
-  };
   // Icon vẽ riêng cho dép: càng đắt trông càng sang (emoji không phân biệt được).
   const SHOE_ICONS = {
     // dép tổ ong: nhựa xanh nhạt, quai lỗ chỗ
@@ -92,18 +86,25 @@
       '<path d="M12.5 12.4q12-5 25 0" stroke="#1f8a4c" stroke-width="2.6" fill="none" transform="translate(0 2)"/>' +
       '<path d="M41 4l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z" fill="#f5d98b"/><circle cx="7" cy="9" r="1.2" fill="#f5d98b"/></svg>',
   };
-  // Phần tử icon của vật phẩm: dép dùng SVG vẽ riêng, món khác dùng emoji.
+  // Phần tử icon của vật phẩm: dép dùng SVG vẽ riêng, đồ đeo dùng hình vẽ phẳng như trên nhân vật, còn lại emoji.
   function itemIcon(it, cls) {
     const s = document.createElement('span');
     s.className = cls || 'emoji';
+    const pic = it && !SHOE_ICONS[it.id] ? itemPic(it.id) : null;
     if (it && SHOE_ICONS[it.id]) { s.classList.add('shoe-ic'); s.innerHTML = SHOE_ICONS[it.id]; }
-    else s.textContent = it ? it.emoji : '👡';
+    else if (pic) {
+      s.classList.add('pic-ic');
+      const img = document.createElement('img');
+      img.src = pic; img.alt = it.name;
+      s.appendChild(img);
+    } else s.textContent = it ? it.emoji : '👡';
     return s;
   }
   const ITEM_BY_ID = new Map(ITEMS.map(function (it) { return [it.id, it]; }));
+  // Bồ đoàn: đủ 60 chỗ (bằng số người tối đa mỗi khu) — 6 hàng, mỗi hàng 5 chiếc mỗi bên thảm đỏ, cách nhau một khoảng, tránh cột
   const CUSHIONS = [];
-  [600, 700].forEach(function (y) {
-    [520, 610, 790, 880].forEach(function (x) { CUSHIONS.push({ x: x, y: y }); });
+  [570, 630, 690, 750, 810, 870].forEach(function (y) {
+    [340, 408, 476, 544, 612, 788, 856, 924, 992, 1060].forEach(function (x) { CUSHIONS.push({ x: x, y: y }); });
   });
 
   // ---------- Công sở ----------
@@ -164,6 +165,8 @@
     { id: 'laurieubau', emoji: '🍲', name: 'Lẩu riêu cua bầu', price: 80 },
     { id: 'lauriebo', emoji: '🍲', name: 'Lẩu riêu cua bắp bò', price: 90 },
     { id: 'lauthai', emoji: '🍲', name: 'Lẩu Thái', price: 95 },
+    { id: 'vangdau', emoji: '🥢', name: 'Váng đậu chiên giòn', price: 35 },
+    { id: 'sushi', emoji: '🍣', name: 'Sushi', price: 60 },
   ];
   // Bàn ăn rộng 280 (= 4 viên gạch lát sàn) × sâu 70 (mặt bàn từ y-70 tới y).
   const REST_TABLES = [{ x: 420, y: 720 }, { x: 980, y: 720 }];
@@ -178,11 +181,31 @@
   const RECEPTION = { x: 205, y: 470 };   // chỗ đứng lễ tân (sau quầy)
   const KITCHEN = { x: 1230, y: 540 };    // phục vụ đứng chờ ở cửa bếp
   const REST_PLANTS = [{ x: 60, y: 620 }, { x: 60, y: 965 }, { x: 1340, y: 965 }, { x: 1340, y: 640 }];
+  // Góc nướng BBQ: 10 loại xiên, mỗi xiên 5k; nướng 5 giây rồi ăn 10 giây.
+  const BBQ = { x: 1200, y: 890 };
+  const BBQ_PRICE = 5;
+  const GRILL_MS = 5000;
+  const BBQ_EAT_MS = 10000;
+  const BBQ_SLOTS = 3;           // bếp chỉ đủ chỗ cho 3 người nướng cùng lúc
+  // [miếng chính, miếng xen kẽ]
+  const SKEWERS = [
+    { id: 'xbachi', name: 'Ba chỉ heo', colors: ['#c76a4a', '#f2dcc8'] },
+    { id: 'xbocuon', name: 'Bò cuộn nấm kim châm', colors: ['#8a3a28', '#f2ece2'] },
+    { id: 'xdui', name: 'Đùi gà', colors: ['#d9893a', '#c9772e'] },
+    { id: 'xchanga', name: 'Chân gà', colors: ['#e0a052', '#d08a3c'] },
+    { id: 'xsun', name: 'Sụn gà', colors: ['#e8c48a', '#d9a86a'] },
+    { id: 'xnam', name: 'Nầm bò', colors: ['#d8b08a', '#c49270'] },
+    { id: 'xtom', name: 'Tôm', colors: ['#f08a5a', '#f6b08a'] },
+    { id: 'xmuc', name: 'Mực', colors: ['#f2ead2', '#d9a86a'] },
+    { id: 'xxucxich', name: 'Xúc xích', colors: ['#b8452a', '#d8643a'] },
+    { id: 'xthitde', name: 'Thịt dê', colors: ['#7a3a22', '#a85a3a'] },
+  ];
+  function skewerById(id) { return SKEWERS.find(function (s) { return s.id === id; }); }
   const TRA_DA = { x: 1060, y: 520 };   // bình trà đá đỏ miễn phí, cạnh quầy chị Liễu
   const DRINK_MS = 5000;
   const ONG_DIA = { x: 380, y: 500 };   // bàn thờ Ông Địa đặt sát đất, cạnh quầy lễ tân
   const REST_OBSTACLES = REST_PLANTS.map(function (p) { return { x: p.x, y: p.y - 6, r: 22 }; })
-    .concat([{ x: ONG_DIA.x, y: ONG_DIA.y - 12, r: 36 }, { x: TRA_DA.x, y: TRA_DA.y - 6, r: 20 }]);
+    .concat([{ x: ONG_DIA.x, y: ONG_DIA.y - 12, r: 36 }, { x: TRA_DA.x, y: TRA_DA.y - 6, r: 20 }, { x: BBQ.x, y: BBQ.y - 8, r: 36 }]);
   REST_TABLES.forEach(function (t) {
     [-100, -33, 33, 100].forEach(function (dx) { REST_OBSTACLES.push({ x: t.x + dx, y: t.y - 30, r: 44 }); });
   });
@@ -193,10 +216,93 @@
   const HEAT_MS = 5000;                  // quay cơm 5 giây
 
   // ---------- Lưu trữ local ----------
+  // ---------- Két dữ liệu quan trọng (mã hoá + ký) ----------
+  // Điểm, lương, stress, túi đồ… gom vào MỘT khoá (tên khoá cũng làm rối), mã hoá (mở F12 không đọc được)
+  // và ký 64-bit gắn với mã riêng của máy (chép sang máy khác là hỏng). Sửa tay → bỏ, về mặc định.
+  // Vẫn chỉ là rào chắn: khoá nằm trong code nên người rành kỹ thuật vẫn vượt được — muốn chắc phải lưu trên server.
+  const VAULT_KEYS = ['kxtp_days', 'kxtp_salary', 'kxtp_stress', 'kxtp_inv', 'kxtp_worn', 'kxtp_copies', 'kxtp_steal_date'];
+  const VAULT_SALT = 'kxtp·tâm-tịnh·2026';
+  // Dữ liệu kiểu cũ (chưa nằm trong két) chỉ nhập một lần, có giới hạn trần để không lợi dụng được.
+  const LEGACY_CAP = { kxtp_days: 500, kxtp_salary: 500, kxtp_stress: 100 };
+  function fnv(str, seed) {
+    let h = seed >>> 0;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h;
+  }
+  function vaultSig(str) { return fnv(str, 0x811c9dc5).toString(36) + fnv(str, 0x2b1a5f3d).toString(36); }
+  function xorCrypt(bin, key) { // dòng khoá xorshift sinh từ key
+    let h = fnv(key, 0x9e3779b9) || 1;
+    let out = '';
+    for (let i = 0; i < bin.length; i++) {
+      h ^= h << 13; h ^= h >>> 17; h ^= h << 5; h >>>= 0;
+      out += String.fromCharCode(bin.charCodeAt(i) ^ (h & 255));
+    }
+    return out;
+  }
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* bỏ qua */ } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { /* bỏ qua */ } }
+
+  // Tên khoá trong localStorage cũng được làm rối (mở F12 không đoán được khoá nào là két).
+  const SAVE_KEY = '_' + fnv(VAULT_SALT + '|s', 0x3c6ef372).toString(36) + fnv(VAULT_SALT + '|s', 0x5be0cd19).toString(36);
+  const DEV_KEY = '_' + fnv(VAULT_SALT + '|d', 0x3c6ef372).toString(36) + fnv(VAULT_SALT + '|d', 0x5be0cd19).toString(36);
+  // Chuyển từ tên cũ (kxtp_dev / kxtp_save) sang tên mới.
+  if (!lsGet(DEV_KEY) && lsGet('kxtp_dev')) lsSet(DEV_KEY, lsGet('kxtp_dev'));
+  if (!lsGet(SAVE_KEY) && lsGet('kxtp_save')) lsSet(SAVE_KEY, lsGet('kxtp_save'));
+  lsDel('kxtp_dev');
+  lsDel('kxtp_save');
+  let deviceKey = lsGet(DEV_KEY);
+  if (!deviceKey) { deviceKey = Math.random().toString(36).slice(2) + Date.now().toString(36); lsSet(DEV_KEY, deviceKey); }
+  const VAULT_KEY = VAULT_SALT + '|' + deviceKey;
+  let vault = {};
+  let dataTampered = false;
+  function saveVault() {
+    const bin = unescape(encodeURIComponent(JSON.stringify(vault)));
+    const payload = btoa(xorCrypt(bin, VAULT_KEY));
+    lsSet(SAVE_KEY, payload + '.' + vaultSig(VAULT_KEY + '|' + payload));
+  }
+  (function loadVault() {
+    const raw = lsGet(SAVE_KEY);
+    if (raw) {
+      const dot = raw.lastIndexOf('.');
+      const payload = raw.slice(0, dot);
+      try {
+        if (dot < 0 || raw.slice(dot + 1) !== vaultSig(VAULT_KEY + '|' + payload)) throw new Error('sig');
+        vault = JSON.parse(decodeURIComponent(escape(xorCrypt(atob(payload), VAULT_KEY)))) || {};
+      } catch (err) { // bị sửa tay / chép từ máy khác → bỏ
+        vault = {};
+        dataTampered = true;
+        saveVault();
+      }
+    } else {
+      // Nhập dữ liệu kiểu cũ (từng khoá riêng, có thể kèm chữ ký "giá trị|ký") một lần, có giới hạn trần.
+      VAULT_KEYS.forEach(function (k) {
+        let v = lsGet(k);
+        if (v === null) return;
+        const bar = v.lastIndexOf('|');
+        if (bar >= 0) v = v.slice(0, bar);
+        if (LEGACY_CAP[k] !== undefined) v = String(Math.max(0, Math.min(LEGACY_CAP[k], parseInt(v, 10) || 0)));
+        vault[k] = v;
+      });
+      saveVault();
+    }
+    VAULT_KEYS.forEach(lsDel); // dữ liệu chỉ còn trong két
+    lsDel('kxtp_signed');
+  })();
+
   const store = {
-    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { /* bỏ qua */ } },
-    del: function (k) { try { localStorage.removeItem(k); } catch (e) { /* bỏ qua */ } },
+    get: function (k) {
+      if (VAULT_KEYS.indexOf(k) >= 0) return Object.prototype.hasOwnProperty.call(vault, k) ? String(vault[k]) : null;
+      return lsGet(k);
+    },
+    set: function (k, v) {
+      if (VAULT_KEYS.indexOf(k) >= 0) { vault[k] = String(v); saveVault(); return; }
+      lsSet(k, v);
+    },
+    del: function (k) {
+      if (VAULT_KEYS.indexOf(k) >= 0) { delete vault[k]; saveVault(); return; }
+      lsDel(k);
+    },
   };
   const K = {
     name: 'kxtp_name',
@@ -282,7 +388,7 @@
   // ---------- DOM ----------
   const $ = function (id) { return document.getElementById(id); };
   const canvas = $('scene');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d'); // tạm trỏ sang canvas nhỏ khi vẽ icon vật phẩm (itemPic)
   const bgm = $('bgm');
 
   // ---------- Màn chào / tên ----------
@@ -302,6 +408,8 @@
     $('topbar').classList.remove('hidden');
     $('bottombar').classList.remove('hidden');
     started = true;
+    document.body.classList.add('playing');
+    if (dataTampered) toast('⚠️ Phát hiện dữ liệu bị sửa tay — đã đặt lại phần đó về mặc định.', 7000);
     updateSutraBadge();
     updatePointsUI();
     updateStatsUI();
@@ -343,6 +451,43 @@
   window.addEventListener('keyup', function (e) { keys.delete(e.key.toLowerCase()); });
   window.addEventListener('blur', function () { keys.clear(); });
 
+  // ---------- Cần điều khiển ảo (màn cảm ứng) ----------
+  // Kéo núm theo hướng nào thì đi hướng đó; thả tay là dừng. Vẫn chạm nền để đi tới chỗ đó được.
+  const joy = { x: 0, y: 0, id: null };
+  const JOY_R = 40;
+  (function () {
+    const base = $('joystick');
+    const knob = $('joy-knob');
+    function setKnob(dx, dy) { knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
+    function move(e) {
+      const r = base.getBoundingClientRect();
+      let dx = e.clientX - (r.left + r.width / 2);
+      let dy = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(dx, dy);
+      if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+      joy.x = dx / JOY_R;
+      joy.y = dy / JOY_R;
+      setKnob(dx, dy);
+    }
+    function end(e) {
+      if (e.pointerId !== joy.id) return;
+      joy.id = null;
+      joy.x = joy.y = 0;
+      setKnob(0, 0);
+    }
+    base.addEventListener('pointerdown', function (e) {
+      if (typing()) document.activeElement.blur();
+      joy.id = e.pointerId;
+      base.setPointerCapture(e.pointerId);
+      me.target = null;
+      move(e);
+      e.preventDefault();
+    });
+    base.addEventListener('pointermove', function (e) { if (e.pointerId === joy.id) move(e); });
+    base.addEventListener('pointerup', end);
+    base.addEventListener('pointercancel', end);
+  })();
+
   canvas.addEventListener('pointerdown', function (e) {
     if (!started) return;
     if (typing()) document.activeElement.blur();
@@ -377,20 +522,25 @@
   }
 
   // ---------- Thọ trai ----------
-  FOODS.forEach(function (f) {
-    const b = document.createElement('button');
-    b.innerHTML = '<span class="emoji"></span><span></span>';
-    b.firstChild.textContent = f.emoji;
-    b.lastChild.textContent = f.name;
-    b.addEventListener('click', function () {
-      $('food').classList.add('hidden');
-      me.food = f.id;
-      me.eatUntil = Date.now() + EAT_MS;
-      setPose('eat');
+  function renderFoodList() {
+    const list = $('food-list');
+    if (list.childElementCount) return;
+    FOODS.forEach(function (f) {
+      const b = document.createElement('button');
+      b.appendChild(picSpan(foodPic(f.id), f.name));
+      const name = document.createElement('span');
+      name.textContent = f.name;
+      b.appendChild(name);
+      b.addEventListener('click', function () {
+        $('food').classList.add('hidden');
+        me.food = f.id;
+        me.eatUntil = Date.now() + EAT_MS;
+        setPose('eat');
+      });
+      list.appendChild(b);
     });
-    $('food-list').appendChild(b);
-  });
-  function openFood() { $('food').classList.remove('hidden'); }
+  }
+  function openFood() { renderFoodList(); $('food').classList.remove('hidden'); }
   $('btn-eat').addEventListener('click', openFood);
   $('food-close').addEventListener('click', function () { $('food').classList.add('hidden'); });
 
@@ -541,7 +691,9 @@
       x: Math.round(me.x), y: Math.round(me.y),
       dir: me.dir, pose: me.pose, days: me.days, gender: me.gender, wear: me.wear,
       stress: me.stress, caught: Date.now() < me.caughtUntil, heating: me.heatUntil > Date.now(),
-      food: me.pose === 'eat' ? me.food : undefined,
+      food: me.pose === 'eat' || me.pose === 'bbq' ? me.food : undefined,
+      face: me.face || 'd',
+      grill: me.grillUntil > Date.now() ? me.grill : undefined,
       lotus: Date.now() < (me.lotusUntil || 0),
     };
     const s = JSON.stringify(payload);
@@ -574,6 +726,7 @@
     reviewsBaseline = false;
     updateReviewBadge();
     me.heatUntil = 0;
+    cancelGrill();
     tasks = [];
     updateTaskBadge();
     keys.clear();
@@ -772,6 +925,32 @@
       c.strokeStyle = '#f2ece2'; c.lineWidth = 1.2;                         // giá đỗ thò ra
       [[-4, 1, -8, 3], [-3, 0, -7, -1]].forEach(function (s) { c.beginPath(); c.moveTo(s[0], s[1]); c.lineTo(s[2], s[3]); c.stroke(); });
       E(-4, -1, 2.2, 1.4, '#f08a6a');                                      // tôm
+    } else if (id === 'sushi') {
+      c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(-16, 0, 32, 5);             // khay gỗ
+      c.fillStyle = '#c99a5a'; c.fillRect(-16, -3, 32, 6);
+      c.fillStyle = '#a87a42'; c.fillRect(-16, 2, 32, 1.5);
+      [[-11, '#f08a4b'], [-4, '#d8434a']].forEach(function (s) {             // 2 miếng nigiri: cá hồi, cá ngừ
+        c.fillStyle = '#ffffff'; c.fillRect(s[0] - 3, -7, 7, 5);
+        c.fillStyle = s[1]; c.beginPath(); c.ellipse(s[0] + 0.5, -7.5, 4.4, 2, 0, 0, Math.PI * 2); c.fill();
+        c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 0.6;
+        c.beginPath(); c.moveTo(s[0] - 2, -8); c.lineTo(s[0] + 2, -7); c.stroke();
+      });
+      [4, 11].forEach(function (x0) {                                       // 2 cuộn maki
+        E(x0, -5, 3.6, 3.2, '#1f3a26'); E(x0, -5.4, 2.6, 2.2, '#ffffff'); E(x0, -5.4, 1.1, 1, '#f08a4b');
+      });
+      E(14, -1, 1.8, 1, '#7fb847');                                          // wasabi
+    } else if (id === 'vangdau') {
+      plate();
+      c.fillStyle = '#e7b34a';                                               // váng đậu chiên vàng giòn, cuộn gấp
+      [[-8, -3, 0.3], [-1, -5, -0.2], [6, -3, 0.25], [1, 0, -0.1]].forEach(function (p) {
+        c.save(); c.translate(p[0], p[1]); c.rotate(p[2]);
+        c.beginPath(); c.moveTo(-6, 2); c.quadraticCurveTo(-5, -4, 0, -3); c.quadraticCurveTo(5, -4, 6, 2); c.closePath(); c.fill();
+        c.strokeStyle = '#c98a2a'; c.lineWidth = 0.7;
+        c.beginPath(); c.moveTo(-4, 0); c.quadraticCurveTo(0, -2, 4, 0); c.stroke();
+        c.restore();
+      });
+      c.fillStyle = '#3d8b3a'; c.fillRect(-3, -8, 2, 1.2); c.fillRect(3, -7, 2, 1.2); // hành lá
+      E(11, 1, 2.6, 1.6, '#f4f6f8'); E(11, 0.6, 1.8, 1, '#a8572a');           // chén nước chấm
     } else if (id === 'banhtrang') {
       plate();
       c.fillStyle = '#f0e0d0';                                             // thịt heo luộc thái lát
@@ -850,11 +1029,13 @@
   }
   // Ảnh nhỏ của món để dùng trong popup (thực đơn, chọn món).
   function dishIcon(id, cls) {
-    const cv = document.createElement('canvas');
-    cv.width = 76; cv.height = 52;
-    cv.className = cls || 'dish-ic';
-    drawDish(cv.getContext('2d'), id, 38, 30, 2);
-    return cv;
+    const url = foodPic(id);
+    if (!url) { const e = document.createElement('span'); e.className = cls || 'dish-ic'; e.textContent = '🍽️'; return e; } // chưa có hình
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = '';
+    img.className = cls || 'dish-ic';
+    return img;
   }
 
   function renderMenu() {
@@ -931,6 +1112,74 @@
       list.appendChild(b);
     });
   }
+  // ---------- Góc nướng BBQ ----------
+  function nearBBQ() { return Math.hypot(me.x - BBQ.x, me.y - BBQ.y) <= 90; }
+  // Số người khác đang nướng trên bếp.
+  function grillersNow() {
+    let n = 0;
+    others.forEach(function (o) { if (o.grill) n++; });
+    return n;
+  }
+  const BBQ_FULL_MSG = '🔥 Bếp đang đủ 3 người nướng rồi, xếp hàng đợi đi bà già!';
+  function renderBBQ() {
+    $('bbq-salary').textContent = me.salary;
+    const grid = $('bbq-items');
+    grid.textContent = '';
+    SKEWERS.forEach(function (s) {
+      const b = document.createElement('button');
+      b.className = 'shop-item';
+      b.disabled = me.salary < BBQ_PRICE;
+      const cv = document.createElement('canvas');
+      cv.width = 76; cv.height = 52; cv.className = 'dish-ic';
+      drawSkewer(cv.getContext('2d'), s.id, 38, 26, -0.35, 2);
+      b.appendChild(cv);
+      [['', s.name], ['price', BBQ_PRICE + 'k']].forEach(function (x) {
+        const sp = document.createElement('span');
+        sp.className = x[0];
+        sp.textContent = x[1];
+        b.appendChild(sp);
+      });
+      b.addEventListener('click', function () {
+        if (!nearBBQ()) { toast('Đến gần bếp nướng mới nướng được nhé.'); return; }
+        if (me.grillUntil > Date.now()) { toast('Đang nướng một xiên rồi, đợi chín đã.'); return; }
+        if (grillersNow() >= BBQ_SLOTS) { toast(BBQ_FULL_MSG, 5000); return; }
+        if (me.salary < BBQ_PRICE) return;
+        addSalary(-BBQ_PRICE);
+        me.grill = s.id;
+        me.grillUntil = Date.now() + GRILL_MS;
+        setPose('stand');
+        $('bbq').classList.add('hidden');
+        toast('🔥 Đang nướng xiên ' + s.name.toLowerCase() + ' — 5 giây nữa là chín.');
+      });
+      grid.appendChild(b);
+    });
+  }
+  $('btn-bbq').addEventListener('click', function () {
+    if (!nearBBQ()) { toast('Ra góc nướng BBQ trong quán mới nướng được nhé.'); return; }
+    if (grillersNow() >= BBQ_SLOTS && !(me.grillUntil > Date.now())) { toast(BBQ_FULL_MSG, 5000); return; }
+    renderBBQ();
+    $('bbq').classList.remove('hidden');
+    keys.clear();
+  });
+  $('bbq-close').addEventListener('click', function () { $('bbq').classList.add('hidden'); });
+  function finishGrill() {
+    const s = skewerById(me.grill);
+    me.grillUntil = 0;
+    me.food = me.grill;
+    me.grill = null;
+    me.bbqUntil = Date.now() + BBQ_EAT_MS;
+    setPose('bbq');
+    toast('🍢 Xiên ' + (s ? s.name.toLowerCase() : '') + ' chín rồi, ăn thôi!');
+  }
+  // Bỏ đi giữa lúc đang nướng → huỷ, trả lại tiền.
+  function cancelGrill(msg) {
+    if (!(me.grillUntil > Date.now())) return;
+    me.grillUntil = 0;
+    me.grill = null;
+    addSalary(BBQ_PRICE);
+    if (msg) toast(msg);
+  }
+
   // Trà đá miễn phí: đứng gần bình mới lấy được, uống 5 giây.
   $('btn-tea').addEventListener('click', function () {
     if (Math.hypot(me.x - TRA_DA.x, me.y - TRA_DA.y) > 80) { toast('Ra chỗ bình trà đá cạnh quầy chị Liễu mới lấy được nhé.'); return; }
@@ -1366,7 +1615,8 @@
       const b = document.createElement('button');
       b.className = 'shop-item';
       b.disabled = me.salary < it.price;
-      [['emoji', it.emoji], ['', it.name], ['price', it.price + 'k']].forEach(function (x) {
+      b.appendChild(picSpan(offerPic(it.id), it.name));
+      [['', it.name], ['price', it.price + 'k']].forEach(function (x) {
         const s = document.createElement('span');
         s.className = x[0];
         s.textContent = x[1];
@@ -2128,15 +2378,18 @@
 
   // ---------- Camera ----------
   let dpr = 1, cw = 0, ch = 0, scale = 1, camX = 0, camY = 0;
+  const IS_TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dpr = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2); // điện thoại: nhẹ hơn, vẫn nét
     const rect = canvas.getBoundingClientRect();
     cw = rect.width || window.innerWidth;
     ch = rect.height || window.innerHeight;
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
-    // Điện thoại dọc: phóng to theo chiều ngang (camera đi theo nhân vật) để nhân vật không quá nhỏ.
-    const fit = cw < ch ? cw / 560 : Math.min(cw / 900, ch / 640);
+    // Điện thoại: phóng to cảnh (dọc ~460 đơn vị bề ngang, ngang ~500 đơn vị chiều cao), camera đi theo nhân vật.
+    const fit = cw < ch ? cw / 460
+      : IS_TOUCH && ch < 600 ? ch / 500
+      : Math.min(cw / 900, ch / 640);
     scale = clamp(fit, 0.55, 1.6);
   }
   window.addEventListener('resize', resize);
@@ -2166,6 +2419,10 @@
       if (keys.has('arrowup') || keys.has('w')) vy -= 1;
       if (keys.has('arrowdown') || keys.has('s')) vy += 1;
     }
+    if (!vx && !vy && Math.hypot(joy.x, joy.y) > 0.2 && !typing() && !overlayOpen()) {
+      vx = joy.x;
+      vy = joy.y;
+    }
     if (!vx && !vy && me.target) {
       const dx = me.target.x - me.x, dy = me.target.y - me.y;
       const d = Math.hypot(dx, dy);
@@ -2173,6 +2430,12 @@
       else { vx = dx / d; vy = dy / d; }
     }
     const moving = vx || vy;
+    me.moving = !!moving;
+    // Hướng mặt theo hướng đi (4 hướng); đứng lại thì giữ hướng vừa quay.
+    if (moving) {
+      if (Math.abs(vy) > Math.abs(vx) * 1.2) me.face = vy < 0 ? 'u' : 'd';
+      else me.face = vx < 0 ? 'l' : 'r';
+    }
     if (moving) {
       const len = Math.hypot(vx, vy);
       const ox = me.x, oy = me.y;
@@ -2190,7 +2453,10 @@
       if (me.target && Math.hypot(me.x - ox, me.y - oy) < SPEED * dt * 0.2) me.target = null;
       if (Math.abs(vx) > 0.1) me.dir = vx > 0 ? 1 : -1;
       if (me.heatUntil) { me.heatUntil = 0; toast('Bỏ dở quay cơm rồi.'); }
-      if (me.pose !== 'walk') {
+      cancelGrill('Bỏ dở nướng xiên — đã trả lại ' + BBQ_PRICE + 'k.');
+      if (me.pose === 'bbq' && me.bbqUntil > Date.now()) {
+        // đang ăn xiên nướng: vừa đi vừa ăn tới hết 10 giây
+      } else if (me.pose !== 'walk') {
         me.pose = 'walk';
         document.querySelectorAll('[data-pose], #btn-eat, #btn-sleep').forEach(function (b) { b.classList.remove('active'); });
       }
@@ -2200,11 +2466,15 @@
       setPose('sit'); // ăn xong vẫn ngồi
     } else if (me.pose === 'drink' && Date.now() >= me.drinkUntil) {
       setPose('stand'); // uống xong, cốc biến mất
+    } else if (me.pose === 'bbq' && Date.now() >= me.bbqUntil) {
+      setPose('stand'); // ăn xong xiên
     }
+    if (me.grillUntil && Date.now() >= me.grillUntil) finishGrill();
     if (me.heatUntil && Date.now() >= me.heatUntil) finishHeating();
 
     const k = Math.min(1, dt * 10);
     others.forEach(function (o) {
+      o.moving = Math.hypot(o.x - o.rx, o.y - o.ry) > 2; // để vẽ bước chân khi vừa đi vừa ăn
       o.rx += (o.x - o.rx) * k;
       o.ry += (o.y - o.ry) * k;
     });
@@ -2607,7 +2877,7 @@
     ctx.moveTo(610, 220); ctx.lineTo(650, 190); ctx.lineTo(690, 205); ctx.lineTo(740, 150); ctx.lineTo(790, 125);
     ctx.stroke();
     ctx.fillStyle = '#c0392b';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText('KPI Q4', 606, 108);
@@ -2631,7 +2901,7 @@
     ctx.fillStyle = '#2b2f36';
     ctx.fillRect(1070, 300, 100, 30);
     ctx.fillStyle = '#f2c230';
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = 'bold 15px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('☕ PANTRY', 1120, 315);
@@ -2766,7 +3036,7 @@
     ctx.lineWidth = 2;
     ctx.strokeRect(1296, 772, 100, 28);
     ctx.fillStyle = '#2b2f36';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = 'bold 13px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('PHÒNG HỌP', 1346, 786);
@@ -2798,8 +3068,24 @@
   }
 
   // Ghế làm việc có lưng tựa, chân xoay.
+  // Người đang ngồi ghế này quay hướng nào ('d' mặc định: lưng ghế phía sau)
+  function chairFace(c) {
+    let face = 'd';
+    const check = function (p, x, y) {
+      if ((p.pose === 'sit' || p.pose === 'eat') && Math.abs(x - c.x) < 6 && Math.abs(y - (c.y + 2)) < 6) {
+        face = p.pose === 'eat' ? 'd' : p.face || 'd'; // đang ăn luôn quay ra trước
+      }
+    };
+    if (started) check(me, me.x, me.y);
+    others.forEach(function (o) { check(o, o.rx, o.ry); });
+    return face;
+  }
+  function drawChairBack(x, y) { // lưng ghế chắn trước người ngồi quay vào bàn
+    ctx.fillStyle = '#2f343a';
+    ctx.fillRect(x - 18, y - 36, 36, 30);
+  }
   function drawChair(c) {
-    const x = c.x, y = c.y;
+    const x = c.x, y = c.y, face = chairFace(c);
     ctx.fillStyle = 'rgba(0,0,0,.2)';
     ctx.beginPath(); ctx.ellipse(x, y + 14, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#3a3f45';
@@ -2809,7 +3095,8 @@
     ctx.moveTo(x - 16, y + 14); ctx.lineTo(x + 16, y + 14);
     ctx.stroke();
     ctx.fillStyle = '#2f343a';
-    ctx.fillRect(x - 18, y - 44, 36, 36);
+    if (face === 'd') ctx.fillRect(x - 18, y - 44, 36, 36);                       // lưng ghế phía sau người
+    else if (face === 'l' || face === 'r') ctx.fillRect(face === 'r' ? x - 22 : x + 14, y - 40, 8, 34); // lưng ghế bên cạnh
     ctx.fillStyle = '#3d434a';
     ctx.beginPath(); ctx.ellipse(x, y - 4, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
   }
@@ -2881,273 +3168,6 @@
     });
   }
 
-  // ---------- Vẽ nhân vật ----------
-  const ROBE = '#8197ad';
-  const ROBE_DARK = '#61768c';
-  const SKIN = '#f0c9a2';
-  const SHIRT = '#e9eef3';
-  const SHIRT_LINE = '#9aa7b4';
-  const PANTS = '#34404e';
-  const SKIRT = '#3a4660';
-  // Đặt lại mỗi lần vẽ một nhân vật (drawMonk).
-  let officeLook = false;
-  let darkFace = false;
-  let slapCheek = false;
-  let casualLook = false;   // nhà hàng: áo phông
-  let staffLook = false;    // nhân viên nhà hàng: áo nâu
-  let curPants = PANTS;
-  let curSkirt = SKIRT;
-  let wearing = new Set(); // vật phẩm đang mặc của nhân vật đang vẽ (chỉ hiện ở chùa)
-  let robeMain = ROBE;
-  let robeShade = ROBE_DARK;
-  let robeText = '#ffffff';
-  let female = false;
-
-  function robeShape(topY, botY, topW, botW) {
-    ctx.beginPath();
-    ctx.moveTo(-topW / 2, topY + 6);
-    ctx.quadraticCurveTo(-topW / 2, topY, 0, topY);
-    ctx.quadraticCurveTo(topW / 2, topY, topW / 2, topY + 6);
-    ctx.lineTo(botW / 2, botY);
-    ctx.quadraticCurveTo(0, botY + 5, -botW / 2, botY);
-    ctx.closePath();
-  }
-
-  function torso(topY, botY, days) {
-    if (officeLook) { shirt(topY, botY); return; }
-    ctx.fillStyle = robeMain;
-    robeShape(topY, botY, 26, 34);
-    ctx.fill();
-    ctx.strokeStyle = robeShade;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    // vạt áo chéo
-    ctx.beginPath(); ctx.moveTo(-6, topY + 1); ctx.lineTo(5, topY + 14); ctx.stroke();
-    if (wearing.has('casa')) { // dải cà sa vắt chéo vai
-      ctx.strokeStyle = '#8a4a10';
-      ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(-11, topY + 4); ctx.lineTo(10, botY - 3); ctx.stroke();
-    }
-    if (wearing.has('beads')) { // chuỗi hạt quanh cổ
-      ctx.fillStyle = '#6b3a1a';
-      for (let i = 0; i <= 10; i++) {
-        const a = Math.PI * i / 10;
-        ctx.beginPath(); ctx.arc(Math.cos(a) * 8, topY + 2 + Math.sin(a) * 10, 1.7, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = '#c0392b';
-      ctx.beginPath(); ctx.arc(0, topY + 14, 2.2, 0, Math.PI * 2); ctx.fill();
-    }
-    if (wearing.has('garland')) { // vòng hoa cúc vàng
-      for (let i = 0; i <= 8; i++) {
-        const a = Math.PI * i / 8;
-        ctx.fillStyle = i % 2 ? '#e8902a' : '#f2c230';
-        ctx.beginPath(); ctx.arc(Math.cos(a) * 9, topY + 2 + Math.sin(a) * 11, 2.8, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-    if (wearing.has('bag')) { // tay nải đeo chéo
-      ctx.strokeStyle = '#8c6239';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(10, topY + 3); ctx.lineTo(-12, botY - 8); ctx.stroke();
-      ctx.fillStyle = '#a77b4f';
-      ctx.fillRect(-22, botY - 16, 12, 11);
-      ctx.strokeStyle = '#6e4a28';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-22, botY - 16, 12, 11);
-    }
-    // số điểm chép kinh trên áo
-    ctx.fillStyle = robeText;
-    ctx.font = 'bold 10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(days), 0, (topY + botY) / 2 + 6);
-  }
-
-  // Áo sơ mi + cà vạt (công sở); nhà hàng: áo phông / đồng phục nhân viên.
-  function shirt(topY, botY) {
-    if (staffLook) { // đồng phục nhân viên nhà hàng: áo nâu, tạp dề kem, bảng tên
-      ctx.fillStyle = '#7a4a24';
-      robeShape(topY, botY, 26, 30);
-      ctx.fill();
-      ctx.strokeStyle = '#4f2e14';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      const mid = (topY + botY) / 2;
-      ctx.fillStyle = '#efe3c7';
-      ctx.fillRect(-9, mid - 2, 18, botY - mid + 2);
-      ctx.fillStyle = '#d9a441';
-      ctx.fillRect(4, topY + 7, 6, 3);
-      ctx.fillStyle = '#f2e6c8';
-      ctx.beginPath(); ctx.moveTo(-4, topY + 1); ctx.lineTo(0, topY + 6); ctx.lineTo(4, topY + 1); ctx.closePath(); ctx.fill();
-      return;
-    }
-    if (casualLook) { // áo phông
-      ctx.fillStyle = female ? '#e88aa8' : '#3b7dd8';
-      robeShape(topY, botY, 28, 30);
-      ctx.fill();
-      ctx.strokeStyle = female ? '#c86a88' : '#2a5ea8';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.fillStyle = SKIN; // cổ tròn
-      ctx.beginPath(); ctx.arc(0, topY + 1, 4, 0, Math.PI); ctx.fill();
-      return;
-    }
-    ctx.fillStyle = SHIRT;
-    robeShape(topY, botY, 26, 30);
-    ctx.fill();
-    ctx.strokeStyle = SHIRT_LINE;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    if (female) { // nơ ở cổ
-      const ny = topY + 5;
-      ctx.fillStyle = '#d6456b';
-      ctx.beginPath();
-      ctx.moveTo(0, ny); ctx.lineTo(-7, ny - 4); ctx.lineTo(-7, ny + 4); ctx.closePath();
-      ctx.moveTo(0, ny); ctx.lineTo(7, ny - 4); ctx.lineTo(7, ny + 4); ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#a8304f';
-      ctx.beginPath(); ctx.arc(0, ny, 2, 0, Math.PI * 2); ctx.fill();
-      return;
-    }
-    ctx.fillStyle = '#b03a2e';
-    ctx.beginPath();
-    ctx.moveTo(-2.5, topY + 3); ctx.lineTo(2.5, topY + 3); ctx.lineTo(3.5, topY + 16);
-    ctx.lineTo(0, topY + 20); ctx.lineTo(-3.5, topY + 16);
-    ctx.closePath(); ctx.fill();
-  }
-
-  function head(y) {
-    if (wearing.has('rainbow')) { // cầu vồng sau đầu
-      ['#e74c3c', '#f39c12', '#f1c40f', '#2ecc71', '#3498db', '#8e44ad'].forEach(function (c, i) {
-        ctx.strokeStyle = c;
-        ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.arc(0, y + 6, 28 - i * 2.3, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
-      });
-    }
-    if (wearing.has('halo')) { // hào quang sau đầu
-      const g = ctx.createRadialGradient(0, y, 10, 0, y, 24);
-      g.addColorStop(0, 'rgba(255,225,140,.75)');
-      g.addColorStop(1, 'rgba(255,225,140,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, y, 24, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#e8b64c';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(0, y, 18, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.fillStyle = darkFace ? '#7a7a7a' : SKIN;
-    ctx.beginPath(); ctx.arc(0, y, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(150,100,70,.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    if (slapCheek) { // má đỏ sau khi bị tát
-      ctx.fillStyle = 'rgba(220,40,40,.65)';
-      ctx.beginPath(); ctx.ellipse(7, y + 4, 4.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    }
-    if (wearing.has('hat')) { // mũ ni nâu của nhà sư: chụp kín đầu, hai vạt che tai
-      ctx.fillStyle = '#7a4a24';
-      ctx.beginPath();
-      ctx.arc(0, y - 1, 14.5, Math.PI, Math.PI * 2);
-      ctx.lineTo(14.5, y + 10); ctx.lineTo(9, y + 10); ctx.lineTo(9, y + 1);
-      ctx.lineTo(-9, y + 1); ctx.lineTo(-9, y + 10); ctx.lineTo(-14.5, y + 10);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#5e3819';
-      ctx.fillRect(-14.5, y - 3, 29, 3);
-    }
-    if (wearing.has('flower')) { // hoa cài bên tai
-      ctx.fillStyle = '#f19cb7';
-      for (let i = 0; i < 5; i++) {
-        const a = i / 5 * Math.PI * 2;
-        ctx.beginPath(); ctx.arc(10 + Math.cos(a) * 3.2, y - 8 + Math.sin(a) * 3.2, 2.6, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = '#f2c230';
-      ctx.beginPath(); ctx.arc(10, y - 8, 1.8, 0, Math.PI * 2); ctx.fill();
-    }
-    if (wearing.has('nonla')) { // nón lá
-      ctx.fillStyle = '#e8d39a';
-      ctx.beginPath(); ctx.moveTo(-24, y - 3); ctx.lineTo(0, y - 24); ctx.lineTo(24, y - 3); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#b89a55';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-16, y - 10); ctx.lineTo(16, y - 10);
-      ctx.moveTo(-8, y - 17); ctx.lineTo(8, y - 17);
-      ctx.stroke();
-    }
-    if (officeLook) { // tóc mái: vòm tóc phủ đỉnh đầu, mép lượn sóng ngang trán (nữ dài hơn nam)
-      const ey = y - (female ? 3 : 6);
-      const a0 = Math.PI * (female ? 0.92 : 0.97);
-      ctx.fillStyle = '#2b2018';
-      ctx.beginPath();
-      ctx.arc(0, y, 13.6, a0, Math.PI * 3 - a0);
-      ctx.quadraticCurveTo(9, ey + 4, 6, ey);
-      ctx.quadraticCurveTo(3, ey + 4, 0, ey);
-      ctx.quadraticCurveTo(-3, ey + 4, -6, ey);
-      ctx.quadraticCurveTo(-9, ey + 4, Math.cos(a0) * 13.6, y + Math.sin(a0) * 13.6);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
-
-  // Đồ cầm tay phải (trừ tích trượng — vẽ riêng vì dài).
-  function drawHandItem(t) {
-    if (wearing.has('lantern')) {
-      ctx.strokeStyle = '#3a2414';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(22, -30); ctx.lineTo(22, -24); ctx.stroke();
-      ctx.fillStyle = '#c0392b';
-      ctx.beginPath(); ctx.ellipse(22, -15, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#e8b64c';
-      ctx.fillRect(18, -25, 8, 2);
-      ctx.fillRect(18, -7, 8, 2);
-      ctx.fillStyle = 'rgba(255,200,90,' + (0.35 + Math.sin(t / 200) * 0.15) + ')';
-      ctx.beginPath(); ctx.arc(22, -15, 13, 0, Math.PI * 2); ctx.fill();
-    } else if (wearing.has('candle')) {
-      ctx.fillStyle = '#f2e6c8';
-      ctx.fillRect(19, -40, 6, 14);
-      ctx.fillStyle = '#ffcf5c';
-      ctx.beginPath(); ctx.ellipse(22 + Math.sin(t / 90), -44, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill();
-    } else if (wearing.has('bell')) {
-      ctx.fillStyle = '#d9a441';
-      ctx.beginPath();
-      ctx.moveTo(15, -18); ctx.quadraticCurveTo(15, -34, 22, -34); ctx.quadraticCurveTo(29, -34, 29, -18);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#8a5a1e';
-      ctx.beginPath(); ctx.arc(22, -16, 2, 0, Math.PI * 2); ctx.fill();
-    } else if (wearing.has('book')) {
-      ctx.fillStyle = '#7a3d12';
-      ctx.fillRect(16, -36, 12, 15);
-      ctx.fillStyle = '#e8b64c';
-      ctx.fillRect(18, -33, 8, 1.5);
-      ctx.fillRect(18, -29, 8, 1.5);
-    }
-  }
-
-  // Mèo chùa ngồi bên trái chân.
-  function drawCat(x, y) {
-    ctx.fillStyle = '#e0a15a';
-    ctx.beginPath(); ctx.ellipse(x, y - 8, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, y - 19, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x - 6, y - 21); ctx.lineTo(x - 4, y - 28); ctx.lineTo(x - 1, y - 23);
-    ctx.moveTo(x + 6, y - 21); ctx.lineTo(x + 4, y - 28); ctx.lineTo(x + 1, y - 23);
-    ctx.fill();
-    ctx.strokeStyle = '#e0a15a';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x + 8, y - 4); ctx.quadraticCurveTo(x + 16, y - 6, x + 13, y - 16); ctx.stroke();
-    ctx.fillStyle = '#3a2414';
-    ctx.beginPath(); ctx.arc(x - 2, y - 19, 0.9, 0, Math.PI * 2); ctx.arc(x + 2, y - 19, 0.9, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // Chim sẻ bay chập chờn bên vai.
-  function drawBird(x, y) {
-    ctx.fillStyle = '#8a5a2b';
-    ctx.beginPath(); ctx.ellipse(x, y, 6, 4.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x - 5, y - 3, 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#e8b64c';
-    ctx.beginPath(); ctx.moveTo(x - 8, y - 3); ctx.lineTo(x - 11, y - 2); ctx.lineTo(x - 8, y - 1); ctx.fill();
-    ctx.fillStyle = '#6b4320';
-    ctx.beginPath(); ctx.moveTo(x - 1, y - 2); ctx.lineTo(x + 5, y - 8); ctx.lineTo(x + 4, y - 1); ctx.fill();
-  }
-
   // ---------- Vẽ nhà hàng ----------
   function drawRestWall() {
     const g = ctx.createLinearGradient(0, 0, 0, FLOOR_TOP);
@@ -3178,9 +3198,9 @@
     ctx.lineWidth = 6;
     ctx.strokeRect(950, 205, 190, 130);
     ctx.fillStyle = '#f2ece2';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
     ctx.fillText('THỰC ĐƠN', 1045, 224);
-    ctx.font = '12px sans-serif';
+    ctx.font = '12px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'left';
     MENU.slice(0, 5).forEach(function (m, i) { ctx.fillText(m.name + ' ... ' + m.price + 'k', 960, 246 + i * 17); });
     // tranh đồng lúa
@@ -3232,7 +3252,7 @@
     ctx.fillStyle = '#2b1a0e';
     ctx.fillRect(1172, 242, 126, 98);
     ctx.fillStyle = '#f5d98b';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.fillText('BẾP', 1235, 220);
     ctx.fillText('LỄ TÂN', 210, 330);
@@ -3399,6 +3419,113 @@
     });
   }
 
+  // Một xiên nướng: que tre + 4 miếng thịt xen kẽ. (x, y) là giữa xiên; góc a; k phóng to.
+  function drawSkewer(c, id, x, y, a, k, raw) {
+    const s = skewerById(id);
+    if (!s) return;
+    c.save();
+    c.translate(x, y);
+    c.rotate(a || 0);
+    c.scale(k || 1, k || 1);
+    c.strokeStyle = '#c9a26a';
+    c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(-15, 0); c.lineTo(15, 0); c.stroke();
+    for (let i = 0; i < 4; i++) {
+      const cx = -8 + i * 5.4;
+      c.fillStyle = s.colors[i % 2];
+      if (raw) c.globalAlpha = 0.85;
+      c.beginPath(); c.ellipse(cx, 0, 2.8, 3.4, 0, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 1;
+      if (!raw) { c.fillStyle = 'rgba(60,25,10,.45)'; c.fillRect(cx - 2, -1, 4, 0.8); } // vết nướng
+    }
+    c.restore();
+  }
+
+  // Bếp nướng than: thân bếp, than hồng, vỉ, xiên đang nướng + khói; khay xiên sống bên cạnh.
+  function drawBBQ(t) {
+    const x = BBQ.x, y = BBQ.y;
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath(); ctx.ellipse(x, y + 2, 46, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2b2f36';                                 // chân bếp
+    ctx.fillRect(x - 30, y - 16, 4, 16);
+    ctx.fillRect(x + 26, y - 16, 4, 16);
+    ctx.fillStyle = '#3a3f45';                                 // thân bếp
+    ctx.fillRect(x - 36, y - 34, 72, 20);
+    ctx.fillStyle = '#5d6b78';
+    ctx.fillRect(x - 38, y - 36, 76, 4);
+    const glow = 0.55 + Math.sin(t / 180) * 0.15;              // than hồng
+    ctx.fillStyle = 'rgba(230,80,30,' + glow + ')';
+    ctx.fillRect(x - 33, y - 36, 66, 5);
+    [[-24, -34], [-10, -35], [6, -34], [20, -35]].forEach(function (p, i) {
+      ctx.fillStyle = i % 2 ? '#ffb347' : '#ff7a2a';
+      ctx.beginPath(); ctx.arc(x + p[0], y + p[1], 2.2, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.strokeStyle = '#9aa3ab';                               // vỉ nướng
+    ctx.lineWidth = 1;
+    for (let gx = x - 32; gx <= x + 32; gx += 6) { ctx.beginPath(); ctx.moveTo(gx, y - 40); ctx.lineTo(gx, y - 36); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(x - 34, y - 40); ctx.lineTo(x + 34, y - 40); ctx.stroke();
+    // xiên mọi người đang nướng
+    const grilling = [];
+    if (me.grillUntil > Date.now() && me.grill) grilling.push(me.grill);
+    others.forEach(function (o) { if (o.grill) grilling.push(o.grill); });
+    grilling.slice(0, 6).forEach(function (id, i) {
+      drawSkewer(ctx, id, x - 22 + (i % 3) * 22, y - 42 - Math.floor(i / 3) * 6, 0, 0.9);
+    });
+    if (grilling.length) {                                      // khói nướng
+      ctx.strokeStyle = 'rgba(220,220,220,.35)';
+      ctx.lineWidth = 2;
+      [-14, 4, 18].forEach(function (dx, i) {
+        ctx.beginPath(); ctx.moveTo(x + dx, y - 46);
+        for (let k = 1; k <= 6; k++) ctx.lineTo(x + dx + Math.sin(t / 400 + k * 0.8 + i) * k, y - 46 - k * 6);
+        ctx.stroke();
+      });
+    }
+    // bảng treo "Nướng BBQ tự phục vụ" ở góc phải bếp (sau khay xiên)
+    const sx = x + 112, sy = y - 78;                       // tâm bảng
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.beginPath(); ctx.ellipse(sx, y + 1, 30, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5a3519';                             // khung gỗ: 2 cột + thanh ngang
+    ctx.fillRect(sx - 32, sy - 30, 4, y - sy + 30);
+    ctx.fillRect(sx + 28, sy - 30, 4, y - sy + 30);
+    ctx.fillRect(sx - 36, sy - 32, 72, 5);
+    ctx.strokeStyle = '#3a2414';                           // dây treo
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(sx - 18, sy - 27); ctx.lineTo(sx - 18, sy - 20); ctx.moveTo(sx + 18, sy - 27); ctx.lineTo(sx + 18, sy - 20); ctx.stroke();
+    const bw = 58, bh = 44, r = 6;                         // bảng bo góc
+    const bx0 = sx - bw / 2, by0 = sy - 20;
+    ctx.fillStyle = '#2f1d10';
+    ctx.beginPath();
+    ctx.moveTo(bx0 + r, by0);
+    ctx.arcTo(bx0 + bw, by0, bx0 + bw, by0 + bh, r);
+    ctx.arcTo(bx0 + bw, by0 + bh, bx0, by0 + bh, r);
+    ctx.arcTo(bx0, by0 + bh, bx0, by0, r);
+    ctx.arcTo(bx0, by0, bx0 + bw, by0, r);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#c9963a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // ngọn lửa vẽ tay
+    const fx = sx, fy = by0 + 11, fl = Math.sin(t / 160) * 0.8;
+    ctx.fillStyle = '#ff7a2a';
+    ctx.beginPath(); ctx.moveTo(fx, fy - 8 - fl); ctx.quadraticCurveTo(fx + 6, fy - 2, fx + 4, fy + 3); ctx.quadraticCurveTo(fx, fy + 5, fx - 4, fy + 3); ctx.quadraticCurveTo(fx - 6, fy - 2, fx, fy - 8 - fl); ctx.fill();
+    ctx.fillStyle = '#ffd36e';
+    ctx.beginPath(); ctx.moveTo(fx, fy - 3 - fl); ctx.quadraticCurveTo(fx + 3, fy + 1, fx, fy + 3); ctx.quadraticCurveTo(fx - 3, fy + 1, fx, fy - 3 - fl); ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f5d98b';
+    ctx.font = 'bold 7.5px serif';
+    ctx.fillText('NƯỚNG BBQ', sx, by0 + 24);
+    ctx.fillStyle = '#e8b64c';
+    ctx.font = 'italic 8px serif';
+    ctx.fillText('Tự phục vụ', sx, by0 + 34);
+    // khay xiên sống bên cạnh
+    ctx.fillStyle = '#d9d2c2';
+    ctx.fillRect(x + 42, y - 26, 34, 18);
+    ctx.fillStyle = '#c9c0ac';
+    ctx.fillRect(x + 42, y - 10, 34, 3);
+    ['xbachi', 'xtom', 'xmuc'].forEach(function (id, i) { drawSkewer(ctx, id, x + 59, y - 22 + i * 5, 0, 0.7, true); });
+  }
+
   // Bình trà đá đỏ nắp trắng trên ghế đẩu, kèm chồng cốc.
   function drawTraDa() {
     const x = TRA_DA.x, y = TRA_DA.y;
@@ -3505,28 +3632,700 @@
     return { x: KITCHEN.x + (tx - KITCHEN.x) * p, y: KITCHEN.y + (ty - KITCHEN.y) * p, walking: true, dish: going.dish };
   }
   function drawNpc(npc, x, y, t, label, extra) {
+    npc.carry = extra || null; // món đang bưng (vẽ trên hai tay)
     const top = drawMonk(npc, x, y, t, false);
-    if (extra) drawDish(ctx, extra, x + 17, y - 38, 0.7); // món đang bưng
     drawLabel(label, x, top - 4);
   }
 
-  // Màu dép khi đi làm: [đế, quai, viền/sọc]
-  const OFFICE_SHOES = {
-    deptoong: ['#7cc6ec', '#a9dcf5', null],
-    depda: ['#3a2a20', '#c0392b', null],
-    haivang: ['#111', '#1f8a4c', '#d4a017'],
-  };
-  function drawShoe(x, style) {
-    const s = style || ['#1d1d1f', '#1d1d1f', null];
-    ctx.fillStyle = s[0];
-    ctx.beginPath(); ctx.ellipse(x, -3, 6.5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    if (s[2]) { ctx.strokeStyle = s[2]; ctx.lineWidth = 1; ctx.stroke(); }
-    ctx.fillStyle = s[1];                       // quai dép
-    ctx.fillRect(x - 4, -6, 8, 2.4);
-    if (s[2]) { ctx.fillStyle = '#c0392b'; ctx.fillRect(x - 4, -5.2, 8, 0.8); } // sọc đỏ giữa (Gucci)
+  // Đang ngồi hàng ghế phía trước bàn ăn (sát người xem)? Người này quay lưng ra ngoài, mặt hướng vào bàn.
+  function seatedFacingTable(x, y) {
+    return scene === 'restaurant' && REST_SEATS.some(function (s) {
+      return s.y > REST_TABLES[s.table].y && Math.abs(x - s.x) < 6 && Math.abs(y - (s.y + 2)) < 6;
+    });
   }
 
-  // Trả về độ cao đỉnh đầu (để đặt tên/bong bóng chat).
+  // Đang ngồi đúng ghế văn phòng / ghế nhà hàng? (ngồi ghế thì luôn hướng vào bàn)
+  function onSeatFurniture(x, y) {
+    const on = function (s) { return Math.abs(x - s.x) < 6 && Math.abs(y - (s.y + 2)) < 6; };
+    return (scene === 'office' && ALL_CHAIRS.some(on)) || (scene === 'restaurant' && REST_SEATS.some(on));
+  }
+
+  // ---------- Nhân vật phong cách phẳng (hình khối màu trơn, không viền) ----------
+  if (!CanvasRenderingContext2D.prototype.roundRect) { // trình duyệt cũ: bo góc đều theo bán kính đầu tiên
+    CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+      r = Math.min(Array.isArray(r) ? r[0] : r, w / 2, h / 2);
+      this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+      this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+    };
+  }
+  // Đơn vị hình vẽ: chân ở y = 0, đầu tròn tâm (0, HY) bán kính HR; cả hình thu nhỏ FIG lần khi vẽ vào cảnh.
+  const FIG = 0.8;
+  const HY = -92, HR = 21;
+  const F_SKIN = '#f8d9c6', F_SKIN_D = '#ecbfa8', F_WHITE = '#ffffff', F_PUPIL = '#2b1a12', F_SHOE = '#3b2a22';
+  const F_BLUSH = 'rgba(244,128,128,.38)', F_HAIR = '#1c1614';
+  // Màu áo tràng theo áo mua trong shop: [thân, vạt chéo, ống quần]
+  const F_ROBES = {
+    casa: ['#e8952f', '#cf7a1c', '#b8681a'],
+    robebrown: ['#b07a48', '#986336', '#7d5230'],
+    robewhite: ['#f4f1ea', '#e2ddd2', '#cfc8ba'],
+  };
+  const F_ROBE = ['#8fb0d6', '#7a9cc4', '#6683a8'];
+  const F_SHOES = { deptoong: ['#7cc6ec', '#a9dcf5'], depda: ['#3a2a20', '#c0392b'], haivang: ['#161616', '#1f8a4c'] };
+  let FP = {};     // nhân vật đang vẽ: look, female, items, shoe, robe, days, dark, slap
+  let STEP = 0;    // nhịp bước -1..1 (0 khi đứng yên)
+
+  function fShape(col, draw) { ctx.beginPath(); draw(); ctx.fillStyle = col; ctx.fill(); }
+  function fCircle(col, x, y, r) { fShape(col, function () { ctx.arc(x, y, r, 0, Math.PI * 2); }); }
+  function fLimb(x0, y0, x1, y1, w, col) { // thanh bo tròn hai đầu (ống tay, cánh tay)
+    const a = Math.atan2(y1 - y0, x1 - x0), r = w / 2;
+    fShape(col, function () { ctx.arc(x0, y0, r, a + Math.PI / 2, a - Math.PI / 2); ctx.arc(x1, y1, r, a - Math.PI / 2, a + Math.PI / 2); ctx.closePath(); });
+  }
+  function fInHead(draw) { ctx.save(); ctx.beginPath(); ctx.arc(0, HY, HR + 0.3, 0, Math.PI * 2); ctx.clip(); draw(); ctx.restore(); }
+  function fHas(id) { return FP.items.has(id); }
+  function fSkin() { return FP.dark ? '#7a7a7a' : F_SKIN; }
+
+  // ===== Mặt =====
+  function fFrown(x, y, r) { // miệng mếu (cong xuống)
+    ctx.save(); ctx.strokeStyle = '#a8655a'; ctx.lineWidth = 2; ctx.lineCap = 'round'; // nâu hồng nhạt, không gắt như đen
+    ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    ctx.restore();
+  }
+  function faceFront(closed, tilt) {
+    tilt = tilt || 0;
+    fCircle(fSkin(), -HR, HY + 3 - tilt * 6, 4.5); fCircle(fSkin(), HR, HY + 3 - tilt * 6, 4.5);   // tai (cúi thì tai nhích lên)
+    fCircle(fSkin(), 0, HY, HR);
+    if (tilt) { // cúi xuống: đỉnh đầu sáng, phần cằm khuất tối
+      fShape('rgba(255,255,255,' + 0.35 * tilt + ')', function () { ctx.ellipse(-3, HY - 9, 11, 7, -0.3, 0, Math.PI * 2); });
+      fShape('rgba(90,40,20,' + 0.16 * tilt + ')', function () { ctx.ellipse(0, HY + 14, 17, 7, 0, 0, Math.PI * 2); });
+    }
+    ctx.save();
+    ctx.translate(0, HY + 4 + tilt * 9); ctx.scale(1, 1 - 0.45 * tilt); ctx.translate(0, -(HY + 4)); // mặt úp xuống: ngũ quan trượt xuống, dẹt lại
+    if (closed) { // ngủ: mắt nhắm
+      ctx.save(); ctx.strokeStyle = F_PUPIL; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      [-8, 8].forEach(function (x) { ctx.beginPath(); ctx.arc(x, HY - 2, 4.5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); });
+      ctx.restore();
+    } else {
+      fCircle(F_WHITE, -8, HY - 2, 6.5); fCircle(F_WHITE, 8, HY - 2, 6.5);    // mắt trắng to
+      fCircle(F_PUPIL, -7, HY - 4.5, 3.8); fCircle(F_PUPIL, 9, HY - 4.5, 3.8); // con ngươi nhìn lên
+    }
+    fCircle(F_BLUSH, -13, HY + 6, 3.6); fCircle(F_BLUSH, 13, HY + 6, 3.6);
+    if (FP.slap) fShape('rgba(220,40,40,.6)', function () { ctx.ellipse(12, HY + 6, 6, 5, 0, 0, Math.PI * 2); }); // má đỏ vì bị tát
+    if (FP.sad) fFrown(0, HY + 13, 5);                                         // bị tát / bị bắt: mếu, không cười
+    else fShape(F_WHITE, function () { ctx.moveTo(-6, HY + 8); ctx.lineTo(6, HY + 8); ctx.arc(0, HY + 8, 6, 0, Math.PI); ctx.closePath(); }); // miệng cười
+    ctx.restore();
+    if (tilt) fInHead(function () { fShape(fSkin(), function () { ctx.rect(-HR, HY + HR - tilt * 6, HR * 2, 8); }); }); // cằm khuất sau mặt cúi
+  }
+  function faceSide(bald) { // nhìn chéo 3/4 sang phải: thấy hai mắt (mắt xa nhỏ, sát mép), miệng cười trên mặt
+    fCircle(fSkin(), 0, HY, HR);
+    if (bald) fCircle(fSkin(), -8, HY + 3, 4.5);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, HY, HR, 0, Math.PI * 2); ctx.clip();
+    fCircle(F_WHITE, 7, HY - 2, 6.2);  fCircle(F_PUPIL, 9, HY - 4, 3.6);    // mắt gần
+    fCircle(F_WHITE, 18, HY - 2, 4.6); fCircle(F_PUPIL, 19.5, HY - 3.5, 2.8); // mắt xa
+    fCircle(FP.slap ? 'rgba(220,40,40,.6)' : F_BLUSH, 2, HY + 6, FP.slap ? 5.5 : 3.6);
+    if (FP.sad) fFrown(13, HY + 12.5, 4);
+    else fShape(F_WHITE, function () { ctx.moveTo(8, HY + 8); ctx.lineTo(18, HY + 8); ctx.arc(13, HY + 8, 5, 0, Math.PI); ctx.closePath(); });
+    ctx.restore();
+  }
+  function faceBack() {
+    fCircle(fSkin(), -HR, HY + 3, 4.5); fCircle(fSkin(), HR, HY + 3, 4.5);
+    fCircle(fSkin(), 0, HY, HR);
+  }
+  function earSide() { fCircle(fSkin(), -7, HY + 2.5, 4.6); fCircle(F_SKIN_D, -6.6, HY + 2.8, 2.2); }
+
+  // ===== Tóc (mỗi kiểu: behind = vẽ trước thân, over = vẽ sau mặt) =====
+  function capSide(col) { fInHead(function () { fShape(col, function () { ctx.arc(-17, HY - 10, 23, 0, Math.PI * 2); }); }); }
+  function capBack(col, low) {
+    fInHead(function () {
+      fShape(col, function () {
+        ctx.moveTo(-HR - 1, HY + low - 1); ctx.lineTo(-HR - 1, HY - HR - 1); ctx.lineTo(HR + 1, HY - HR - 1); ctx.lineTo(HR + 1, HY + low - 1);
+        ctx.lineTo(HR, HY + low - 1); ctx.ellipse(0, HY + low - 1, HR, 6, 0, 0, Math.PI); ctx.closePath();
+      });
+    });
+  }
+  // Tóc nam nhìn nghiêng: trùm đỉnh, phía sau dài qua tai, chân tóc vòng sau rồi qua trên tai; front() vẽ mép mái
+  function sideHairPath(front) {
+    ctx.arc(0, HY, HR + 0.5, -Math.PI * 0.12, Math.PI * 0.82, true);
+    ctx.quadraticCurveTo(-13, HY + 11, -11, HY + 4);
+    ctx.quadraticCurveTo(-8, HY - 7, 2, HY - 9);
+    front();
+    ctx.closePath();
+  }
+  function waves(x0, x1, y, n) { // mép tóc gợn sóng
+    const w = (x1 - x0) / n;
+    for (let i = 0; i < n; i++) ctx.quadraticCurveTo(x0 + w * (i + 0.5), y + 4.5, x0 + w * (i + 1), y);
+  }
+  const F_HAIRS = {
+    bald: { behind: function () {}, over: function () {} },
+    // nữ: rẽ ngôi giữa, búi thấp sau gáy (chùa, nhân viên nhà hàng)
+    lowbun: {
+      behind: function (v) { if (v === 's') fCircle(F_HAIR, -17, HY + 9, 8.5); },
+      over: function (v) {
+        if (v === 'f') fInHead(function () {
+          fShape(F_HAIR, function () { ctx.arc(-10, HY - 25, 19, 0, Math.PI * 2); });
+          fShape(F_HAIR, function () { ctx.arc(10, HY - 25, 19, 0, Math.PI * 2); });
+        });
+        if (v === 's') capSide(F_HAIR);
+        if (v === 'b') { capBack(F_HAIR, 10); fCircle(F_HAIR, 0, HY + 12, 8.5); }
+      } },
+    // nam văn phòng: rẽ ngôi lệch, vuốt gọn ôm đầu
+    neat: {
+      behind: function () {},
+      over: function (v) {
+        if (v === 'f') fInHead(function () {
+          fShape(F_HAIR, function () { ctx.arc(-6, HY - 29, 24, 0, Math.PI * 2); });
+          fShape(F_HAIR, function () { ctx.arc(13, HY - 26, 17, 0, Math.PI * 2); });
+        });
+        if (v === 's') { fShape(F_HAIR, function () { sideHairPath(function () { ctx.quadraticCurveTo(13, HY - 13, 18.8, HY - 6.8); }); }); earSide(); }
+        if (v === 'b') capBack(F_HAIR, 8);
+      } },
+    // nữ văn phòng: bob ngang cằm bo tròn góc, mái bằng
+    bob: {
+      behind: function (v) { if (v === 'f') fShape(F_HAIR, function () { ctx.roundRect(-HR - 4, HY - HR - 2, HR * 2 + 8, HR + 14, [HR + 4, HR + 4, 9, 9]); }); },
+      over: function (v) {
+        if (v === 'f') fInHead(function () { fShape(F_HAIR, function () { ctx.rect(-HR - 1, HY - HR - 1, HR * 2 + 2, HR - 6); }); });
+        if (v === 's') fShape(F_HAIR, function () {
+          ctx.arc(0, HY, HR + 2.5, -Math.PI * 0.1, Math.PI, true);
+          ctx.lineTo(-HR - 2.5, HY + 3);
+          ctx.arcTo(-HR - 2.5, HY + 12, 0, HY + 12, 9);
+          ctx.arcTo(0, HY + 12, 0, HY - 8, 6);
+          ctx.lineTo(0, HY - 8);
+          ctx.lineTo(HR + 1.5, HY - 8);
+          ctx.closePath();
+        });
+        if (v === 'b') fShape(F_HAIR, function () { ctx.roundRect(-HR - 4, HY - HR - 2, HR * 2 + 8, HR + 14, [HR + 4, HR + 4, 9, 9]); });
+      } },
+    // nam nhà hàng: tóc ôm đầu, mái gợn sóng
+    curly: {
+      behind: function () {},
+      over: function (v) {
+        const R = HR + 1;
+        if (v === 'f') fShape(F_HAIR, function () {
+          ctx.arc(0, HY, R, Math.PI * 0.97, Math.PI * 2.03);
+          ctx.lineTo(HR - 2.5, HY);
+          ctx.quadraticCurveTo(HR - 3, HY - 6, HR - 7, HY - 8);
+          waves(HR - 7, -HR + 7, HY - 8, 3);
+          ctx.quadraticCurveTo(-HR + 3, HY - 6, -HR + 2.5, HY);
+          ctx.closePath();
+        });
+        if (v === 's') { fShape(F_HAIR, function () { sideHairPath(function () { waves(4, 19, HY - 8, 2); }); }); earSide(); }
+        if (v === 'b') fShape(F_HAIR, function () { ctx.arc(0, HY, R, Math.PI * 0.97, Math.PI * 2.03); waves(R, -R, HY + 1, 3); ctx.closePath(); });
+      } },
+    // nữ nhà hàng: buộc đuôi ngựa cao, mái chéo, dây buộc hồng
+    ponytail: {
+      behind: function (v) {
+        if (v === 'f') fShape(F_HAIR, function () { ctx.ellipse(HR - 2, HY + 4, 6, 15, -0.25, 0, Math.PI * 2); });
+        if (v === 's') fShape(F_HAIR, function () { ctx.ellipse(-HR - 3, HY + 6, 6.5, 17, 0.35, 0, Math.PI * 2); });
+      },
+      over: function (v) {
+        if (v === 'f') fInHead(function () {
+          fShape(F_HAIR, function () { ctx.arc(9, HY - 34, 26, 0, Math.PI * 2); });
+          fShape(F_HAIR, function () { ctx.arc(-11, HY - 29, 20, 0, Math.PI * 2); });
+        });
+        if (v === 's') { capSide(F_HAIR); fCircle('#e85a7a', -HR + 1, HY - 9, 3.2); }
+        if (v === 'b') {
+          capBack(F_HAIR, 6);
+          fShape(F_HAIR, function () { ctx.ellipse(0, HY + 8, 6.5, 17, 0, 0, Math.PI * 2); });
+          fCircle('#e85a7a', 0, HY - 8, 3.2);
+        }
+      } },
+  };
+
+  // ===== Chân =====
+  function fShoe(x, y, w, side) {
+    const s = FP.shoe;
+    fShape(FP.barefoot ? fSkin() : s ? s[0] : F_SHOE, function () { side ? ctx.roundRect(x - 3.4, y, 10, 3.5, 1.5) : ctx.roundRect(x - w / 2 - 0.6, y, w + 1.2, 3.5, 1.5); });
+    if (s && !FP.barefoot) fShape(s[1], function () { ctx.rect(side ? x - 1 : x - w / 2, y - 1, side ? 5 : w, 2); }); // quai dép
+  }
+  // Đứng / đi: hai chân tách rời; nhìn nghiêng thì đánh kéo quanh hông, chân sau sẫm hơn
+  function fLegs(v, top, col, sock) {
+    const L = -4 - top;
+    if (v === 's') {
+      [-1, 1].forEach(function (d) {
+        const a = d * STEP * 0.34, knee = Math.max(0, a) * 1;     // bước vừa phải; chân đang ở sau (a > 0) thì co nhẹ gối
+        const L1 = L * 0.5, L2 = L - L1;
+        ctx.save(); ctx.translate(0, top); ctx.rotate(a);
+        fShape(col, function () { ctx.rect(-3.2, 0, 6.4, L1 + 1); });          // đùi
+        if (d < 0) fShape('rgba(0,0,0,.14)', function () { ctx.rect(-3.2, 0, 6.4, L1 + 1); }); // chân sau sẫm hơn
+        ctx.translate(0, L1); ctx.rotate(knee);
+        fShape(col, function () { ctx.rect(-3.2, 0, 6.4, L2); });              // cẳng chân
+        if (sock) fShape(sock, function () { ctx.rect(-3.4, Math.max(0, L2 - 18), 6.8, Math.min(18, L2)); });
+        fShoe(0, L2, 6.4, true);
+        if (d < 0) fShape('rgba(0,0,0,.14)', function () { ctx.rect(-3.2, 0, 6.4, L2); ctx.roundRect(-3.4, L2, 10, 3.5, 1.5); });
+        ctx.restore();
+      });
+      return;
+    }
+    [-1, 1].forEach(function (d) { // nhìn trước / sau: nhấc chân luân phiên
+      const lift = Math.max(0, d * STEP) * 3, x = d * 2.7;
+      fShape(col, function () { ctx.rect(x - 2.6, top, 5.2, L - lift); });
+      if (sock) fShape(sock, function () { ctx.rect(x - 2.8, -22 - lift, 5.6, 18); });
+      fShoe(x + d * 0.8, -4 - lift, 5.2, false);
+    });
+  }
+  // Ngồi ghế: nhìn trước thấy cẳng chân thả xuống; nghiêng thấy đùi duỗi ngang rồi cẳng chân
+  function fSeatLegs(v, col, sock) {
+    if (v === 'b') return; // quay lưng: chân duỗi phía trước, khuất sau lưng / gầm bàn
+    if (v === 's') {
+      fShape(col, function () { ctx.roundRect(-5, -17, 18, 7, 3); });               // đùi duỗi ngang trên mặt ghế
+      fShape(sock || col, function () { ctx.rect(8, -12, 6, 8); });                   // cẳng chân thả xuống
+      fShoe(11, -4, 6, true);
+      return;
+    }
+    fShape(col, function () { ctx.roundRect(-9, -17, 18, 7, 3); });                   // lòng (đùi nhìn từ trước)
+    [-1, 1].forEach(function (d) {
+      const x = d * 4;
+      fShape(sock || col, function () { ctx.rect(x - 2.7, -12, 5.4, 8); });
+      fShoe(x, -4, 5.4, false);
+    });
+  }
+  // Thân hạ thấp bao nhiêu theo tư thế; ngồi ghế thì hạ tới khi gấu áo / váy chạm mặt ghế
+  function seatDrop(mode, o) { return mode === 'chair' ? Math.max(0, -o.legTop - 14) : F_SEAT_DROP[mode]; }
+
+  // ===== Thân (tam giác áo / váy) + tay =====
+  function fTri(col, top, bot, wTop, wBot, v) {
+    const k = v === 's' ? 0.62 : 1;
+    fShape(col, function () { ctx.moveTo(-wTop * k, top); ctx.lineTo(wTop * k, top); ctx.lineTo(wBot * k, bot); ctx.lineTo(-wBot * k, bot); ctx.closePath(); });
+  }
+  function fNeck(collar) {
+    fShape(fSkin(), function () { ctx.rect(-3.5, -74, 7, 6); });
+    if (collar) fShape(collar, function () { ctx.moveTo(-5, -70); ctx.lineTo(5, -70); ctx.lineTo(4, -66); ctx.lineTo(-4, -66); ctx.closePath(); });
+  }
+  // Tay buông hai bên (vung ngược nhịp chân); sleeve: màu ống tay áo dài; skipR: tay phải đang cầm đồ (vẽ riêng)
+  function fHands(v, y, x, sleeve, skipR) {
+    if (v === 's') {
+      ctx.save(); ctx.translate(1, -67); ctx.rotate(-STEP * 0.4);
+      if (sleeve) fLimb(0, 0, 1.5, y + 63, 6, sleeve);
+      else { ctx.strokeStyle = F_SKIN_D; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1.5, y + 63); ctx.stroke(); }
+      fCircle(fSkin(), 1.5, y + 67, 5);
+      ctx.restore();
+      return;
+    }
+    [-1, 1].forEach(function (d) {
+      if (d > 0 && skipR) return;
+      if (sleeve) fLimb(d * 8, -67, d * (x + 3), y - 5 - d * STEP * 2, 6.5, sleeve);
+      fCircle(fSkin(), d * (x + 3), y - d * STEP * 2, 5.5);
+    });
+  }
+  // Hai bàn tay đặt chồng trong lòng (ngồi thiền)
+  function fLapHands(v, y) {
+    if (v === 'b') return;
+    fShape(fSkin(), function () { v === 's' ? ctx.ellipse(7, y, 5, 3.5, 0, 0, Math.PI * 2) : ctx.ellipse(0, y, 8, 4.5, 0, 0, Math.PI * 2); });
+  }
+  // Tay chắp trước ngực (quỳ, lạy)
+  function fPray(v, y) {
+    if (v === 'b') return;
+    if (v === 's') { fLimb(1, -66, 9, y + 2, FP.outfit === 'robe' ? 6 : 4, FP.outfit === 'robe' ? FP.robe[0] : fSkin()); fShape(fSkin(), function () { ctx.ellipse(10, y, 3.5, 6, 0.3, 0, Math.PI * 2); }); return; }
+    fShape(fSkin(), function () { ctx.ellipse(0, y, 5, 7.5, 0, 0, Math.PI * 2); });
+  }
+
+  // Trang phục: legs(v) = ống quần / chân; top(v) = thân áo; hand = [x, y, ống tay] cho tay buông
+  const F_OUTFITS = {
+    robe: { // áo tràng ở chùa (màu theo áo mua), số điểm trên ngực
+      legCol: function () { return FP.robe[2]; }, legTop: -14,
+      top: function (v) {
+        fNeck();
+        fTri(FP.robe[0], -70, -10, 6, 23, v);
+        if (v !== 'b') fShape(FP.robe[1], function () { const k = v === 's' ? 0.62 : 1; ctx.moveTo(-6 * k, -70); ctx.lineTo(4 * k, -50); ctx.lineTo(6 * k, -70); ctx.closePath(); });
+        if (FP.robeId === 'casa' && v === 'f') fShape('#b8521a', function () { ctx.moveTo(-6, -70); ctx.lineTo(-1, -70); ctx.lineTo(19, -13); ctx.lineTo(13, -11); ctx.closePath(); });
+        if (v === 'f') {
+          ctx.fillStyle = FP.numCol; ctx.font = 'bold 9px sans-serif, "Noto Color Emoji"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(FP.days || 0), 0, -38);
+        }
+      },
+      hand: [22, -11, null], hideSideHand: true },
+    officeM: { // sơ mi dài tay xanh nhạt, cà vạt xanh than, quần ghi
+      legCol: function () { return '#4a4e57'; }, legTop: -40,
+      top: function (v) {
+        fNeck();
+        fTri('#d8e7f6', -70, -36, 9, 22, v);
+        if (v === 'f') fShape('#2c4a80', function () { ctx.moveTo(-2, -68); ctx.lineTo(2, -68); ctx.lineTo(3.5, -48); ctx.lineTo(0, -44); ctx.lineTo(-3.5, -48); ctx.closePath(); });
+        if (v === 's') fShape('#2c4a80', function () { ctx.moveTo(4, -68); ctx.lineTo(7, -50); ctx.lineTo(5, -47); ctx.closePath(); });
+      },
+      hand: [22, -37, '#d8e7f6'] },
+    officeF: { // váy xanh than cổ trắng, nơ kem
+      legCol: function () { return fSkin(); }, legTop: -28,
+      top: function (v) {
+        fNeck('#ffffff');
+        fTri('#2f3a5a', -68, -26, 5, 28, v);
+        if (v === 'f') { fCircle('#f7e7c6', -3.2, -65, 2.6); fCircle('#f7e7c6', 3.2, -65, 2.6); fCircle('#e8cf9c', 0, -65, 1.6); }
+      },
+      hand: [28, -27, null] },
+    casualM: { // áo cam san hô, nơ cổ xanh than, quần jean
+      legCol: function () { return '#5372a8'; }, legTop: -40,
+      top: function (v) {
+        fNeck();
+        fTri('#ef7a5a', -70, -36, 10, 22, v);
+        if (v === 'f') {
+          fShape('#26406e', function () { ctx.moveTo(0, -67); ctx.lineTo(-6, -70.5); ctx.lineTo(-6, -63.5); ctx.closePath(); });
+          fShape('#26406e', function () { ctx.moveTo(0, -67); ctx.lineTo(6, -70.5); ctx.lineTo(6, -63.5); ctx.closePath(); });
+          fCircle('#1b2f55', 0, -67, 1.8);
+        }
+        if (v === 's') fShape('#26406e', function () { ctx.moveTo(4.5, -67); ctx.lineTo(9, -70); ctx.lineTo(9, -64); ctx.closePath(); });
+      },
+      hand: [22, -37, null] },
+    casualF: { // váy xanh mint cổ trắng 2 cúc, tất trắng
+      legCol: function () { return fSkin(); }, legTop: -28, sock: '#ffffff',
+      top: function (v) {
+        fNeck('#ffffff');
+        fTri('#6cc3a8', -68, -26, 5, 28, v);
+        if (v === 'f') { fCircle('#ffffff', 0, -62, 1.4); fCircle('#ffffff', 0, -57.5, 1.4); }
+      },
+      hand: [28, -27, null] },
+    staff: { // nhân viên nhà hàng (lễ tân, chị Liễu): váy nâu, tạp dề kem
+      legCol: function () { return fSkin(); }, legTop: -28,
+      top: function (v) {
+        fNeck('#f4ead8');
+        fTri('#8a5a34', -68, -26, 5, 28, v);
+        if (v !== 'b') { const k = v === 's' ? 0.62 : 1; fShape('#f4ead8', function () { ctx.moveTo(-9 * k, -54); ctx.lineTo(9 * k, -54); ctx.lineTo(15 * k, -30); ctx.lineTo(-15 * k, -30); ctx.closePath(); }); }
+      },
+      hand: [28, -27, null] },
+    boss: { // sếp: vest đen, sơ mi trắng, cà vạt đỏ
+      legCol: function () { return '#1b1f27'; }, legTop: -40,
+      top: function (v) {
+        fNeck();
+        fTri('#232a36', -70, -34, 11, 24, v);
+        if (v === 'f') {
+          fShape('#f4f6f8', function () { ctx.moveTo(-5, -70); ctx.lineTo(5, -70); ctx.lineTo(0, -56); ctx.closePath(); });
+          fShape('#c0392b', function () { ctx.moveTo(-1.5, -68); ctx.lineTo(1.5, -68); ctx.lineTo(2.5, -55); ctx.lineTo(0, -52); ctx.lineTo(-2.5, -55); ctx.closePath(); });
+        }
+      },
+      hand: [24, -35, '#232a36'] },
+  };
+
+  // ===== Vật phẩm (chỉ hiện ở chùa; dép hiện ở mọi nơi) =====
+  function drawAura(v) {
+    if (fHas('halo')) { // vòng sáng thiên thần trên đỉnh đầu
+      const ry = HY - HR - 7;
+      ctx.save(); ctx.filter = 'blur(2.5px)';
+      ctx.strokeStyle = 'rgba(255,222,110,.8)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.ellipse(0, ry, 12, 3.4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      const g = ctx.createLinearGradient(0, ry - 4, 0, ry + 4);
+      g.addColorStop(0, '#fffbe0'); g.addColorStop(0.45, '#ffd84d'); g.addColorStop(1, '#ffa41b');
+      ctx.save(); ctx.strokeStyle = g; ctx.lineWidth = 2.6; ctx.shadowColor = 'rgba(255,210,80,.9)'; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.ellipse(0, ry, 12, 3.4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+    if (fHas('rainbow') && v !== 's') { // cầu vồng pastel sau đầu, chân có mây
+      ['#ff8f8f', '#ffbb73', '#ffe27a', '#9fe3a2', '#8fcaff', '#c4a8ff'].forEach(function (col, i) {
+        const r = 38 - i * 2.6;
+        fShape(col, function () { ctx.arc(0, HY + 8, r, Math.PI, 0); ctx.arc(0, HY + 8, r - 2.6, 0, Math.PI, true); ctx.closePath(); });
+      });
+      [-1, 1].forEach(function (d) {
+        fCircle('#ffffff', d * 31, HY + 8, 6); fCircle('#ffffff', d * 37, HY + 9, 5); fCircle('#ffffff', d * 25.5, HY + 9.5, 4.5);
+        fShape('#ffffff', function () { ctx.roundRect(d > 0 ? 24 : -42, HY + 9, 18, 5, 2.5); });
+      });
+    }
+  }
+  function drawPet() {
+    if (!fHas('cat')) return; // mèo ngồi bên trái
+    fShape('#f0a35a', function () { ctx.ellipse(-36, -9, 9, 9, 0, 0, Math.PI * 2); });
+    fShape('#f0a35a', function () { ctx.ellipse(-45, -14, 2.2, 8, -0.5, 0, Math.PI * 2); });
+    fCircle('#f0a35a', -36, -22, 7);
+    fShape('#f0a35a', function () { ctx.moveTo(-42, -25); ctx.lineTo(-41, -32); ctx.lineTo(-37, -28); ctx.closePath(); });
+    fShape('#f0a35a', function () { ctx.moveTo(-30, -25); ctx.lineTo(-31, -32); ctx.lineTo(-35, -28); ctx.closePath(); });
+    fCircle('#2b1a12', -38.5, -22.5, 1.1); fCircle('#2b1a12', -33.5, -22.5, 1.1);
+    fCircle('#fff3e6', -36, -19.5, 2.2);
+  }
+  function drawNeckItems() {
+    if (fHas('beads')) {
+      for (let i = 0; i <= 10; i++) { const a = Math.PI * i / 10; fCircle('#6b3a1a', Math.cos(a) * 8, -69 + Math.sin(a) * 11, 1.8); }
+      fCircle('#c0392b', 0, -55.5, 2.4);
+    }
+    if (fHas('garland')) for (let i = 0; i <= 8; i++) {
+      const a = Math.PI * i / 8;
+      fCircle(i % 2 ? '#e8902a' : '#f2c230', Math.cos(a) * 9.5, -69 + Math.sin(a) * 12, 3);
+    }
+    if (fHas('bag')) {
+      fShape('#8a5a2e', function () { ctx.moveTo(-7, -70); ctx.lineTo(-3.5, -70); ctx.lineTo(16, -34); ctx.lineTo(12.5, -34); ctx.closePath(); });
+      fShape('#a8743e', function () { ctx.roundRect(8, -38, 14, 12, 3); });
+    }
+  }
+  function drawHeadItems(v) {
+    if (fHas('hat')) { // mũ ni len: chỏm nâu có gân dọc, viền bo len, núm len
+      const R = HR + 1.5, ex = Math.cos(Math.PI * 0.15) * R, ey = HY - Math.sin(Math.PI * 0.15) * R;
+      const cap = function () { ctx.arc(0, HY, R, Math.PI * 1.15, Math.PI * 1.85); ctx.quadraticCurveTo(0, HY - 7.5, -ex, ey); ctx.closePath(); };
+      fCircle('#6a3f1e', 0, HY - R - 0.5, 3.2);
+      fShape('#7a4a24', cap);
+      ctx.save(); ctx.beginPath(); cap(); ctx.clip();
+      ctx.fillStyle = '#6a3f1e';
+      for (let x = -R; x < R; x += 3.6) {
+        ctx.beginPath(); ctx.moveTo(x, HY - R - 2); ctx.quadraticCurveTo(x * 0.85, HY - 14, x * 0.92, HY - 4);
+        ctx.lineTo(x * 0.92 + 1.5, HY - 4); ctx.quadraticCurveTo(x * 0.85 + 1.5, HY - 14, x + 1.5, HY - R - 2); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      fShape('#5e3517', function () {
+        ctx.moveTo(-ex - 0.5, ey - 0.5); ctx.quadraticCurveTo(0, HY - 7.5, ex + 0.5, ey - 0.5);
+        ctx.lineTo(ex - 0.3, ey - 4.5); ctx.quadraticCurveTo(0, HY - 11.5, -ex + 0.3, ey - 4.5); ctx.closePath();
+      });
+    }
+    if (fHas('nonla')) {
+      fShape('#ead79c', function () { ctx.moveTo(0, HY - 42); ctx.lineTo(34, HY - 10); ctx.quadraticCurveTo(0, HY - 6, -34, HY - 10); ctx.closePath(); });
+      fShape('#d8c27e', function () { ctx.moveTo(-20, HY - 20); ctx.quadraticCurveTo(0, HY - 16, 20, HY - 20); ctx.lineTo(18.5, HY - 23); ctx.quadraticCurveTo(0, HY - 19, -18.5, HY - 23); ctx.closePath(); });
+    }
+    if (fHas('flower') && v === 'f') {
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; fCircle('#f19cb7', 14 + Math.cos(a) * 3.6, HY - 12 + Math.sin(a) * 3.6, 3); }
+      fCircle('#f2c230', 14, HY - 12, 2.2);
+    }
+  }
+  function drawHandItems(x, y, noHand) { // đồ cầm tay phải (nhìn trước); noHand: vẽ icon, không có bàn tay
+    if (fHas('staff')) {
+      fShape('#8a5a2b', function () { ctx.rect(x - 1.5, -112, 3, 108); });
+      fShape('#e8b64c', function () { ctx.arc(x, -117, 7, 0, Math.PI * 2); ctx.arc(x, -117, 4.5, 0, Math.PI * 2, true); });
+    }
+    if (fHas('lantern')) {
+      fShape('#3a2414', function () { ctx.rect(x - 0.6, y, 1.2, 6); });
+      fShape('#c0392b', function () { ctx.ellipse(x, y + 14, 7, 9, 0, 0, Math.PI * 2); });
+      fShape('#e8b64c', function () { ctx.rect(x - 4, y + 4.5, 8, 2); ctx.rect(x - 4, y + 21.5, 8, 2); });
+    }
+    if (fHas('candle')) {
+      fShape('#f6f0e2', function () { ctx.rect(x - 2.5, y - 16, 5, 13); });
+      fShape('#f6a623', function () { ctx.ellipse(x, y - 20, 2.4, 4, 0, 0, Math.PI * 2); });
+      fShape('#ffe27a', function () { ctx.ellipse(x, y - 19, 1.2, 2.2, 0, 0, Math.PI * 2); });
+    }
+    if (fHas('bell')) { // chuông cầm tay nghiêng chếch ra ngoài
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-1.25); ctx.scale(0.85, 0.85);
+      fShape('#6b4f2a', function () { ctx.moveTo(-1.6, 8); ctx.lineTo(-2.4, -9); ctx.arc(0, -9, 2.4, Math.PI, 0); ctx.lineTo(1.6, 8); ctx.closePath(); });
+      fShape('#f59e0b', function () { ctx.ellipse(0, 8.5, 4.2, 2.8, 0, 0, Math.PI * 2); });
+      fShape('#f9bf13', function () {
+        ctx.moveTo(-4.5, 10); ctx.quadraticCurveTo(-5.5, 20, -10.5, 23); ctx.lineTo(10.5, 23);
+        ctx.quadraticCurveTo(5.5, 20, 4.5, 10); ctx.quadraticCurveTo(0, 6.5, -4.5, 10); ctx.closePath();
+      });
+      fShape('#f59e0b', function () { ctx.ellipse(0, 23, 11, 2.6, 0, 0, Math.PI * 2); });
+      fShape('#f9bf13', function () { ctx.roundRect(-2, 21.5, 4, 7, 2); });
+      ctx.restore();
+    }
+    if (fHas('book')) {
+      fShape('#f2e6c8', function () { ctx.rect(x - 7, y - 25, 16, 20); });
+      fShape('#a8322c', function () { ctx.roundRect(x - 8, y - 26, 15, 21, 2); });
+      fShape('#7a2420', function () { ctx.rect(x - 8, y - 26, 3, 21); });
+      fShape('#e8b64c', function () { ctx.rect(x - 3.5, y - 22, 8, 2); });
+      fCircle('#e8b64c', x + 0.5, y - 14, 2.6);
+    }
+    if (!noHand && (fHas('staff') || fHas('lantern') || fHas('candle') || fHas('bell') || fHas('book'))) fCircle(fSkin(), x, y, 5.5);
+    if (fHas('bird')) { // chim sẻ đậu trên vai, thấp hơn cằm
+      fShape('#9c6b3e', function () { ctx.ellipse(-17, -63, 6, 4.5, 0, 0, Math.PI * 2); });
+      fCircle('#9c6b3e', -13, -67, 3.6);
+      fShape('#f2c230', function () { ctx.moveTo(-10, -67.5); ctx.lineTo(-7, -66.5); ctx.lineTo(-10, -65.5); ctx.closePath(); });
+      fCircle('#2b1a12', -12.2, -68, 0.9);
+      fShape('#7a4f2c', function () { ctx.moveTo(-22, -64); ctx.lineTo(-28, -67); ctx.lineTo(-23, -61); ctx.closePath(); });
+    }
+  }
+
+  // ===== Đồ ăn cầm tay (vẽ phẳng; tâm món ở (x, y)) =====
+  function fBowl(x, y, food, top) { // bát trắng viền xanh, món đầy miệng bát; top(): vẽ thêm trên mặt món
+    fShape(food, function () { ctx.ellipse(x, y - 3, 8, 2.8, 0, 0, Math.PI * 2); });
+    if (top) top();
+    fShape('#f4f2ec', function () { ctx.moveTo(x - 8.5, y - 3); ctx.quadraticCurveTo(x - 7.5, y + 6, x, y + 6); ctx.quadraticCurveTo(x + 7.5, y + 6, x + 8.5, y - 3); ctx.closePath(); });
+    fShape('#5b8fd1', function () { ctx.rect(x - 7.6, y + 0.5, 15.2, 1.4); });
+  }
+  function fPlate(x, y, food) { // đĩa trắng + món đặt lên
+    fShape('#f4f2ec', function () { ctx.ellipse(x, y + 3, 10, 3.2, 0, 0, Math.PI * 2); });
+    food();
+  }
+  function blob(col, x, y, rx, ry) { fShape(col, function () { ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); }); }
+  const F_FOODS = {
+    com: function (x, y) { fBowl(x, y, '#ffffff', function () { blob('#f6f6f0', x, y - 4.5, 6, 2.6); }); },
+    comtrang: function (x, y) { F_FOODS.com(x, y); },
+    pho: function (x, y) { fBowl(x, y, '#e8c98a', function () { blob('#fff6dc', x - 2, y - 3.5, 3.5, 1.2); blob('#7cbf5a', x + 3, y - 3.2, 1.8, 1); }); },
+    bunhen: function (x, y) { fBowl(x, y, '#f0e6cf', function () { blob('#fffaf0', x, y - 3.5, 4.5, 1.3); blob('#d98c3a', x + 3, y - 3.4, 1.5, 0.9); }); },
+    xoi: function (x, y) { fBowl(x, y, '#f2d36b', function () { blob('#f7df8a', x, y - 4.5, 6, 2.6); blob('#8fbf5a', x + 2, y - 5.5, 1.6, 1); }); },
+    canhchua: function (x, y) { fBowl(x, y, '#f0a04b', function () { blob('#7cbf5a', x - 2, y - 3.3, 1.8, 0.9); blob('#e8584a', x + 2.5, y - 3.3, 1.6, 0.9); }); },
+    thitkho: function (x, y) { fBowl(x, y, '#9a5a2a', function () { blob('#fff6dc', x - 2.5, y - 4, 2.3, 1.8); blob('#f2c230', x - 2.5, y - 4, 1.1, 0.9); blob('#7a3e1a', x + 2.8, y - 3.8, 2.6, 1.6); }); },
+    cakho: function (x, y) { fBowl(x, y, '#8a4a1e', function () { blob('#c87a3a', x, y - 4, 5, 1.8); }); },
+    laurieubau: function (x, y) { fBowl(x, y, '#e8584a', function () { blob('#f2a45a', x - 2, y - 3.5, 2.6, 1); blob('#7cbf5a', x + 3, y - 3.3, 1.8, 0.9); }); },
+    lauriebo: function (x, y) { F_FOODS.laurieubau(x, y); },
+    lauthai: function (x, y) { fBowl(x, y, '#e8762a', function () { blob('#f08a8a', x - 2, y - 3.5, 2.2, 1); blob('#7cbf5a', x + 3, y - 3.3, 1.8, 0.9); }); },
+    trungran: function (x, y) { fPlate(x, y, function () { blob('#ffffff', x, y + 1, 7, 2.6); blob('#f2b51e', x, y + 0.6, 2.8, 1.6); }); },
+    raumuong: function (x, y) { fPlate(x, y, function () { blob('#5aa83a', x, y + 0.5, 7, 2.8); blob('#f6efd8', x + 2, y, 1, 0.8); }); },
+    nomchanvit: function (x, y) { fPlate(x, y, function () { blob('#8fcf6a', x, y + 0.5, 6.5, 2.6); blob('#f0d9b0', x - 2, y, 2, 1); blob('#e8584a', x + 2.5, y - 0.2, 1, 0.8); }); },
+    dauphu: function (x, y) { fPlate(x, y, function () { blob('#d9482f', x, y + 0.8, 7, 2.6); [-3, 0, 3].forEach(function (d) { fShape('#f2d28a', function () { ctx.rect(x + d - 1.3, y - 1, 2.6, 2.4); }); }); }); },
+    nemran: function (x, y) { fPlate(x, y, function () { [-3, 0, 3].forEach(function (d) { fShape('#d9902e', function () { ctx.roundRect(x + d - 1.4, y - 2.5, 2.8, 6, 1.4); }); }); }); },
+    vangdau: function (x, y) { F_FOODS.nemran(x, y); },
+    banhtrang: function (x, y) { fPlate(x, y, function () { [-3, 0, 3].forEach(function (d) { fShape('#f6efe0', function () { ctx.roundRect(x + d - 1.4, y - 2.5, 2.8, 6, 1.4); }); }); }); },
+    suonxao: function (x, y) { fPlate(x, y, function () { [-3.5, 0, 3.5].forEach(function (d) { blob('#a8401e', x + d, y + 0.5, 2.2, 1.8); }); }); },
+    galuoc: function (x, y) { fPlate(x, y, function () { blob('#f2c870', x, y + 0.5, 6, 2.8); blob('#7cbf5a', x + 3, y - 0.8, 1.6, 0.8); }); },
+    banhxeo: function (x, y) { fPlate(x, y, function () { fShape('#f2b51e', function () { ctx.arc(x, y + 1.8, 6.5, Math.PI, 0); ctx.closePath(); }); }); },
+    sushi: function (x, y) { fPlate(x, y, function () { [-3.2, 3.2].forEach(function (d) { blob('#ffffff', x + d, y + 0.8, 2.8, 2); blob('#f28a5a', x + d, y - 0.3, 2.6, 1.2); }); }); },
+    banhbao: function (x, y) { fShape('#f6f2e8', function () { ctx.arc(x, y + 2, 6, Math.PI, 0); ctx.closePath(); }); blob('#e8e0cc', x, y - 3.6, 1.4, 0.9); },
+    chuoi: function (x, y) { fShape('#f5d33a', function () { ctx.arc(x + 2, y - 6, 9, Math.PI * 0.55, Math.PI * 0.95); ctx.arc(x + 4, y - 9, 9, Math.PI * 0.95, Math.PI * 0.55, true); ctx.closePath(); }); },
+    cam: function (x, y) { fCircle('#f39a2a', x, y, 5.5); blob('#5aa83a', x + 2, y - 5.5, 2.2, 1.1); },
+    dao: function (x, y) { fCircle('#f7a1a8', x, y, 5.5); fCircle('#f28a96', x + 2, y + 1, 3); blob('#5aa83a', x - 2, y - 5.5, 2.2, 1.1); },
+    tra: function (x, y) { fShape('#f4f2ec', function () { ctx.moveTo(x - 5, y - 4); ctx.lineTo(x + 5, y - 4); ctx.lineTo(x + 3.5, y + 4); ctx.lineTo(x - 3.5, y + 4); ctx.closePath(); }); blob('#9cbf5a', x, y - 4, 4.6, 1.3); },
+    cafe: function (x, y) { fShape('#f4f2ec', function () { ctx.roundRect(x - 4.5, y - 4, 9, 9, 2); }); blob('#6a3f1e', x, y - 4, 4, 1.2); },
+    comhop: function (x, y) { fShape('#d9482f', function () { ctx.roundRect(x - 7, y - 3, 14, 8, 2); }); fShape('#ffffff', function () { ctx.rect(x - 5.5, y - 4.5, 11, 3); }); },
+  };
+
+  // Đầu + tóc + đồ đội theo hướng nhìn
+  function fHead(v, hair, closed, tilt) {
+    if (v === 'f') faceFront(closed, tilt); else if (v === 's') faceSide(hair === F_HAIRS.bald); else faceBack();
+    if (!(v === 'f' && fHas('nonla'))) hair.over(v);
+    drawHeadItems(v);
+  }
+
+  // Vẽ cả người ở gốc toạ độ (chân y = 0), v: 'f' trước, 's' nghiêng phải, 'b' sau (trái thì lật gương ở ngoài).
+  // mode: 'stand' | 'chair' | 'floor' (ngồi thiền) | 'kneel' | 'bow'; hold: 'eat' | 'drink' | 'bbq' | null
+  function drawFigure(p, v, mode, t, hold, bend) {
+    const o = F_OUTFITS[FP.outfit], hair = F_HAIRS[FP.hair];
+    drawAura(v);
+    if (v !== 'b') drawPet();
+    hair.behind(v);
+    const seated = seatDrop(mode, o);
+    const lapCol = FP.outfit === 'robe' ? FP.robe[2] : o.legCol();
+    if (mode === 'stand') fLegs(v, o.legTop, o.legCol(), o.sock);
+    else if (mode === 'chair') fSeatLegs(v, o.legCol(), o.sock);
+    else if (mode === 'floor') fShape(lapCol, function () { ctx.ellipse(v === 's' ? 5 : 0, -7, v === 's' ? 20 : 29, 9, 0, 0, Math.PI * 2); }); // xếp bằng: lòng rộng
+    else fShape(lapCol, function () { ctx.ellipse(v === 's' ? -9 : 0, -5, v === 's' ? 13 : 17, 6, 0, 0, Math.PI * 2); });                    // quỳ: cẳng chân gập gọn (nghiêng: ra sau)
+    ctx.save();
+    ctx.translate(0, seated - (mode === 'stand' ? Math.abs(STEP) * 1.5 : 0));
+    const ground = mode === 'floor' || mode === 'kneel' || mode === 'bow';
+    if (mode === 'bow' && v === 's') { ctx.translate(0, -10); ctx.rotate(bend * 1.0); ctx.translate(0, 10); }
+    if (mode === 'bow' && v !== 's') { ctx.translate(0, -10); ctx.scale(1, 1 - 0.35 * bend); ctx.translate(0, 10); }
+    const bowing = mode === 'bow' && v !== 's';
+    if (bowing && v === 'b') { // nhìn sau: đầu cúi thấp, vẽ trước để lưng che dần
+      ctx.save(); ctx.translate(0, -10); ctx.scale(1, 1 / (1 - 0.35 * bend)); ctx.translate(0, 10 + bend * 26);
+      fHead(v, hair, false);
+      ctx.restore();
+    }
+    o.top(v);
+    if (bowing) { // khối thân cúi: vai sáng, ngực / bụng khuất bóng
+      fShape('rgba(255,255,255,' + 0.18 * bend + ')', function () { ctx.ellipse(0, -64, 15, 5, 0, 0, Math.PI * 2); });
+      fShape('rgba(40,30,60,' + 0.22 * bend + ')', function () { ctx.moveTo(-20, -18); ctx.quadraticCurveTo(0, -46, 20, -18); ctx.lineTo(23, -10); ctx.lineTo(-23, -10); ctx.closePath(); });
+    }
+    if (v === 'f') drawNeckItems();
+    const hx = o.hand[0], hy = o.hand[1];
+    if (mode === 'floor') fLapHands(v, -24);
+    else if (ground) fPray(v, mode === 'bow' ? -55 + bend * 30 : -55); // chắp tay ngang ngực, không che số trên áo
+    else if (hold === 'carry') { /* bê món: hai tay vẽ sau đầu, trước ngực */ }
+    else if (hold) fHands(v, hy, hx, o.hand[2], true);
+    else if (!(o.hideSideHand && v === 's')) fHands(v, hy, hx, o.hand[2], false);
+    if (bowing && v === 'f') { // đầu cúi về phía người xem: hạ xuống, to lên một chút
+      ctx.translate(0, -10); ctx.scale(1, 1 / (1 - 0.35 * bend)); ctx.translate(0, 10 + bend * 24);
+      ctx.translate(0, HY); ctx.scale(1 + 0.1 * bend, 1 + 0.1 * bend); ctx.translate(0, -HY);
+    }
+    if (!(bowing && v === 'b')) fHead(v, hair, p.pose === 'sleep', bowing ? bend : 0);
+    if (hold === 'carry') { // bê món bằng hai tay trước ngực
+      [-1, 1].forEach(function (d) { fLimb(d * 8, -67, d * 9, -47, 4, o.hand[2] || fSkin()); });
+      ctx.save(); ctx.translate(0, -54); ctx.scale(1.6, 1.6);
+      (F_FOODS[p.carry] || F_FOODS.com)(0, 0);
+      ctx.restore();
+      fCircle(fSkin(), -9, -46, 4.5); fCircle(fSkin(), 9, -46, 4.5);
+    } else if (hold) { // tay phải đưa đồ ăn / cốc / xiên lên miệng, vẽ trước mặt
+      const ph = ((t + (p.seed || 0) * 1700) % 1700) / 1700;
+      const lift = ph < 0.3 ? ph / 0.3 : ph < 0.6 ? 1 : ph < 0.85 ? 1 - (ph - 0.6) / 0.25 : 0;
+      const rx = hx + 3 - lift * 13, ry = hy - lift * (hy - HY - 20);   // tay phải đưa từ hông lên, món chạm đúng miệng
+      const sleeve = o.hand[2] || (FP.outfit === 'robe' ? FP.robe[0] : null);       // áo dài tay / áo tràng: tay áo; áo cộc: tay trần
+      fLimb(8, -67, rx, ry, sleeve ? 6.5 : 4, sleeve || fSkin());
+      if (hold === 'drink') drawTeaGlass(rx - 2, ry - 6);
+      if (hold === 'bbq') drawSkewer(ctx, p.food, rx - 4, ry - 8, -1.1, 0.9);
+      if (hold === 'eat') { // món nằm ngay dưới miệng, phóng to cho dễ nhìn
+        ctx.save(); ctx.translate(rx - 2, ry - 8); ctx.scale(1.3, 1.3);
+        (F_FOODS[p.food] || F_FOODS.com)(0, 0);
+        ctx.restore();
+      }
+      fCircle(fSkin(), rx, ry, 5.5);
+    }
+    if (FP.outfit === 'boss' && v !== 'b') { // kính đen của sếp
+      fShape('#111', function () { v === 's' ? ctx.roundRect(10, HY - 8, 11, 7, 2) : (ctx.roundRect(-15, HY - 8, 12, 7, 2), ctx.roundRect(3, HY - 8, 12, 7, 2)); });
+      if (v === 'f') fShape('#111', function () { ctx.rect(-3, HY - 6, 6, 2); });
+    }
+    if (v === 'f' && !ground && !hold) drawHandItems(hx + 3, hy);
+    ctx.restore();
+    return -(HR - HY) - (fHas('nonla') ? 22 : fHas('halo') || fHas('staff') || fHas('rainbow') ? 13 : 4); // chừa chỗ cho đồ cao hơn đầu
+  }
+
+  // Icon vật phẩm vẽ bằng chính hình trên nhân vật: [vẽ, tâm x, tâm y, phóng to] (đơn vị hình vẽ)
+  const ITEM_PICS = {
+    casa: [robePic, 0, -40, 1.25], robebrown: [robePic, 0, -40, 1.25], robewhite: [robePic, 0, -40, 1.25],
+    beads: [drawNeckItems, 0, -62, 4.4], garland: [drawNeckItems, 0, -62, 3.6], bag: [drawNeckItems, 7, -48, 1.8],
+    hat: [headPic, 0, HY - 16, 2.2], nonla: [headPic, 0, HY - 24, 1.2], flower: [headPic, 14, HY - 12, 4.5],
+    staff: [handPic, 0, -62, 0.72], lantern: [handPic, 0, 14, 2.6], candle: [handPic, 0, -12, 2.7],
+    bell: [handPic, 9, 8, 2.6], book: [handPic, 0, -15, 2.6],
+    halo: [drawAura, 0, HY - HR - 7, 3], rainbow: [drawAura, 0, HY - 6, 1.05],
+    cat: [drawPet, -37, -17, 2.3], bird: [handPic, -18, -64, 4],
+  };
+  function robePic() { F_OUTFITS.robe.top('f'); }
+  function headPic() { drawHeadItems('f'); }
+  function handPic() { drawHandItems(0, 0, true); }
+  // Vẽ một icon phẳng 96×96 bằng chính các hàm vẽ trong game (tạm trỏ ctx sang canvas nhỏ), có bộ nhớ đệm.
+  const flatPicCache = new Map();
+  function flatPic(key, draw, cx, cy, k, fp) {
+    if (flatPicCache.has(key)) return flatPicCache.get(key);
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 96;
+    const mainCtx = ctx, mainFP = FP;
+    try { // luôn trả ctx về canvas chính, kể cả khi vẽ icon lỗi
+      ctx = cv.getContext('2d');
+      FP = fp || { items: new Set(), dark: false };
+      ctx.translate(48, 48); ctx.scale(k, k); ctx.translate(-cx, -cy);
+      draw();
+    } finally {
+      ctx = mainCtx; FP = mainFP;
+    }
+    const url = cv.toDataURL();
+    flatPicCache.set(key, url);
+    return url;
+  }
+  function itemPic(id) {
+    const spec = ITEM_PICS[id];
+    if (!spec) return null;
+    return flatPic('item:' + id, function () { spec[0]('f'); }, spec[1], spec[2], spec[3],
+      { items: new Set([id]), robeId: id, robe: F_ROBES[id] || F_ROBE, numCol: 'transparent', days: '', outfit: 'robe' });
+  }
+  function foodPic(id) {
+    const draw = F_FOODS[id];
+    return draw ? flatPic('food:' + id, function () { draw(0, 0); }, 0, 0, 4) : null;
+  }
+  // Đồ dâng lễ (vẽ phẳng)
+  const OFFER_DRAW = {
+    nen: function () {
+      fShape('#f6f0e2', function () { ctx.rect(-3.5, -6, 7, 16); });
+      fShape('#f6a623', function () { ctx.ellipse(0, -11, 3, 5, 0, 0, Math.PI * 2); });
+      fShape('#ffe27a', function () { ctx.ellipse(0, -10, 1.5, 2.8, 0, 0, Math.PI * 2); });
+    },
+    tra: function () { F_FOODS.tra(0, 0); },
+    hoa: function () { // hoa sen hồng
+      [[-6, 0.6], [6, -0.6], [0, 0]].forEach(function (p) { fShape(p[0] ? '#f7a8c0' : '#f28aac', function () { ctx.ellipse(p[0] * 0.8, -1, 4, 8, p[1], 0, Math.PI * 2); }); });
+      fShape('#7cbf5a', function () { ctx.ellipse(0, 7, 10, 2.6, 0, 0, Math.PI * 2); });
+    },
+    den: function () { // đèn dầu: đĩa đồng + ngọn lửa
+      fShape('#c98a2a', function () { ctx.moveTo(-9, 2); ctx.quadraticCurveTo(0, 10, 9, 2); ctx.closePath(); });
+      fShape('#b8741e', function () { ctx.rect(-2, 6, 4, 4); ctx.roundRect(-6, 9, 12, 2.5, 1.2); });
+      fShape('#f6a623', function () { ctx.ellipse(0, -4, 3, 5.5, 0, 0, Math.PI * 2); });
+      fShape('#ffe27a', function () { ctx.ellipse(0, -3, 1.5, 3, 0, 0, Math.PI * 2); });
+    },
+    qua: function () { // mâm quả: đĩa + cam, chuối, đào
+      fShape('#d9a21c', function () { ctx.ellipse(0, 6, 12, 3.5, 0, 0, Math.PI * 2); });
+      F_FOODS.cam(-4, 0); F_FOODS.dao(4.5, 1); F_FOODS.chuoi(-1, 4);
+    },
+  };
+  function offerPic(id) {
+    const draw = OFFER_DRAW[id];
+    return draw ? flatPic('offer:' + id, draw, 0, 0, 3.6) : null;
+  }
+  // Ô icon ảnh phẳng (thay cho emoji)
+  function picSpan(url, alt, cls) {
+    if (!url) { const e = document.createElement('span'); e.className = cls || 'emoji'; e.textContent = '🍽️'; return e; } // chưa có hình
+    const s = document.createElement('span');
+    s.className = (cls || 'emoji') + ' pic-ic';
+    const img = document.createElement('img');
+    img.src = url; img.alt = alt;
+    s.appendChild(img);
+    return s;
+  }
+  const F_SEAT_DROP = { stand: 0, chair: 12, floor: 16, kneel: 4, bow: 10 }; // thân hạ thấp bao nhiêu theo tư thế
+  // Ai mặc gì ở đâu
+  function lookFor(p) {
+    const f = p.gender === 'f';
+    if (p.boss) return ['boss', 'neat'];
+    if (p.staff) return ['staff', 'lowbun'];
+    if (scene === 'temple') return ['robe', 'bald']; // đi chùa: ai cũng đầu trọc
+    if (scene === 'restaurant') return f ? ['casualF', 'ponytail'] : ['casualM', 'curly'];
+    return f ? ['officeF', 'bob'] : ['officeM', 'neat'];
+  }
+
+  // Vẽ một người chơi / NPC; trả về độ cao đỉnh đầu (để đặt tên / bong bóng chat).
   function drawMonk(p, x, y, t, isMe) {
     ctx.save();
     ctx.translate(x, y);
@@ -3537,166 +4336,64 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(0, 0, 24, 9, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    let topOfHead;
-    officeLook = scene !== 'temple'; // văn phòng và nhà hàng: quần áo thường
-    female = officeLook && p.gender === 'f'; // ở chùa ai cũng như nhau
-    staffLook = !!p.staff;
-    casualLook = scene === 'restaurant' && !staffLook;
-    curPants = staffLook ? '#2b1d12' : casualLook ? '#3a4f7a' : PANTS;   // nhà hàng: quần jean
-    curSkirt = staffLook ? '#3a2616' : casualLook ? '#4a6fa5' : SKIRT;   // nhà hàng: chân váy jean
-    darkFace = (blackFaces.get(p.id) || 0) > Date.now();
     const slapAgo = Date.now() - (slaps.get(p.id) || 0);
-    slapCheek = slapAgo < 3000;
-    if (slapAgo < 600) ctx.translate(Math.sin(t / 22) * 3 * (1 - slapAgo / 600), 0); // rung người
-    wearing = officeLook ? new Set() : new Set(p.wear || []);
-    const robeId = officeLook ? null : (p.wear || []).find(function (w) { return ROBE_STYLES[w]; });
-    const robeStyle = ROBE_STYLES[robeId] || [ROBE, ROBE_DARK, '#ffffff'];
-    robeMain = robeStyle[0];
-    robeShade = robeStyle[1];
-    robeText = robeStyle[2];
+    if (slapAgo < 600) ctx.translate(Math.sin(t / 22) * 3 * (1 - slapAgo / 600), 0); // rung người khi bị tát
+    const look = lookFor(p);
+    const temple = scene === 'temple' && !p.boss && !p.staff;
+    const robeId = temple ? (p.wear || []).find(function (w) { return F_ROBES[w]; }) : null;
+    const shoeId = (p.wear || []).find(function (w) { return F_SHOES[w]; });
+    FP = {
+      outfit: look[0], hair: look[1],
+      items: temple ? new Set(p.wear || []) : new Set(),
+      robeId: robeId, robe: F_ROBES[robeId] || F_ROBE,
+      numCol: robeId === 'robewhite' ? '#8a7a5a' : '#ffffff',
+      shoe: F_SHOES[shoeId] || null,
+      barefoot: temple, // vào chùa để dép ở kệ: đi chân trần
+      days: p.days,
+      dark: (blackFaces.get(p.id) || 0) > Date.now(),
+      slap: slapAgo < 3000,
+      sad: slapAgo < 3000 || (p === me ? Date.now() < me.caughtUntil : !!p.caught), // bị tát / bị sếp bắt: mếu
+    };
+    ctx.scale(FIG, FIG);
 
-    if (p.pose === 'sleep') {
-      // nằm ngang dưới gầm bàn, đầu bên trái
-      ctx.fillStyle = officeLook ? (female ? curSkirt : curPants) : robeShade;
-      ctx.fillRect(4, -13, 30, 10);
-      ctx.fillStyle = officeLook ? SHIRT : robeMain;
-      ctx.fillRect(-20, -16, 28, 14);
-      ctx.strokeStyle = officeLook ? SHIRT_LINE : robeShade;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(-20, -16, 28, 14);
-      ctx.save();
-      ctx.translate(-31, 0);
-      head(-11);
+    const VIEW = { d: 'f', u: 'b', r: 's', l: 'l' };
+    let v = VIEW[p.face] || 'f', mode = 'stand', hold = null, bend = 0;
+    STEP = 0;
+    if (p.pose === 'sleep') { // nằm ngang dưới gầm bàn, đầu bên trái
+      ctx.translate(40, -8); ctx.rotate(-Math.PI / 2); ctx.scale(0.75, 0.75);
+      drawFigure(p, 'f', 'stand', t, null, 0);
       ctx.restore();
-      topOfHead = -26;
-    } else if (p.pose === 'sit') {
-      ctx.fillStyle = officeLook ? (female ? curSkirt : curPants) : robeShade;
-      ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
-      torso(-46, -10, p.days);
-      ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(0, -14, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
-      head(-58);
-      topOfHead = -71;
-    } else if (p.pose === 'eat') {
-      // ngồi, cứ ~2 giây đưa món lên miệng một lần
-      ctx.fillStyle = officeLook ? (female ? curSkirt : curPants) : robeShade;
-      ctx.beginPath(); ctx.ellipse(0, -8, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
-      torso(-46, -10, p.days);
-      const ph = ((t + (p.seed || 0) * 2000) % 2000) / 2000;
-      const lift = ph < 0.25 ? ph / 0.25 : ph < 0.45 ? 1 : ph < 0.7 ? 1 - (ph - 0.45) / 0.25 : 0;
-      const fy = -16 - lift * 24;
-      const food = FOODS.concat(PANTRY_FOODS, MENU).find(function (f) { return f.id === p.food; }) || FOODS[0];
-      ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(0, fy + 6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
-      if (menuItem(food.id)) drawDish(ctx, food.id, 0, fy + 2, 0.55);
-      else {
-        ctx.font = '16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(food.emoji, 0, fy);
-      }
-      head(-58);
-      topOfHead = -71;
-    } else if (p.pose === 'kneel') {
-      // Nhìn thẳng (hướng về tượng): quỳ thẳng lưng, cẳng chân gập dưới thân.
-      ctx.fillStyle = robeShade;
-      ctx.beginPath(); ctx.ellipse(0, -6, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
-      torso(-46, -8, p.days);
-      // tay chắp trước ngực
-      ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(0, -32, 4, 7, 0, 0, Math.PI * 2); ctx.fill();
-      head(-58);
-      topOfHead = -71;
-    } else if (p.pose === 'bow') {
-      const dir = p.dir || 1;
-      // cẳng chân gập phía sau
-      ctx.fillStyle = robeShade;
-      ctx.beginPath(); ctx.ellipse(-dir * 8, -6, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
+      return y - 26;
+    }
+    if (p.pose === 'sit' || p.pose === 'eat') {
+      const facingTable = seatedFacingTable(x, y);
+      if (facingTable) { v = 'b'; mode = 'chair'; }
+      else if (temple && !onSeatFurniture(x, y)) mode = 'floor';
+      else { mode = 'chair'; if (scene === 'restaurant' && onSeatFurniture(x, y)) v = 'f'; } // văn phòng: quay theo hướng người chơi
+      if (p.pose === 'eat' && !facingTable) { v = 'f'; hold = 'eat'; } // đang ăn: quay mặt ra trước để thấy món
+    } else if (p.pose === 'kneel') mode = 'kneel';
+    else if (p.pose === 'bow') {
+      mode = 'bow';
       const ph = ((t + (p.seed || 0) * 3000) % 3200) / 3200;
-      const bend = ph < 0.35 ? ph / 0.35 : ph < 0.65 ? 1 : 1 - (ph - 0.65) / 0.35;
-      const a = dir * bend * 1.25;
-      ctx.save();
-      ctx.translate(0, -12);
-      ctx.rotate(a);
-      torso(-38, 0, p.days);
-      // tay chắp
-      ctx.fillStyle = SKIN;
-      ctx.beginPath(); ctx.ellipse(dir * 10, -26, 4, 7, dir * 0.4, 0, Math.PI * 2); ctx.fill();
-      head(-50);
-      ctx.restore();
-      topOfHead = -12 - Math.cos(a) * 63;
+      bend = ph < 0.35 ? ph / 0.35 : ph < 0.65 ? 1 : 1 - (ph - 0.65) / 0.35;
     } else {
-      const walking = p.pose === 'walk';
-      const sw = walking ? Math.sin(t / 90) : 0;
-      const bob = walking ? Math.abs(Math.sin(t / 90)) * 2 : 0;
-      if (officeLook && female) {
-        // chân + váy
-        ctx.fillStyle = SKIN;
-        ctx.fillRect(-7 + sw * 4, -16, 5, 13);
-        ctx.fillRect(2 - sw * 4, -16, 5, 13);
-        ctx.fillStyle = curSkirt;
-        ctx.beginPath();
-        ctx.moveTo(-12, -26 - bob); ctx.lineTo(12, -26 - bob);
-        ctx.lineTo(17, -12 - bob); ctx.lineTo(-17, -12 - bob);
-        ctx.closePath(); ctx.fill();
-      } else if (officeLook) {
-        // quần dài
-        ctx.fillStyle = curPants;
-        ctx.fillRect(-10 + sw * 4, -26 - bob, 9, 23 + bob);
-        ctx.fillRect(1 - sw * 4, -26 - bob, 9, 23 + bob);
-      }
-      if (officeLook) {
-        // Đi làm: mang đúng đôi dép đang mang (dép đã mua).
-        const shoe = (p.wear || []).find(function (w) { return OFFICE_SHOES[w]; });
-        drawShoe(-6 + sw * 5, OFFICE_SHOES[shoe]);
-        drawShoe(6 - sw * 5, OFFICE_SHOES[shoe]);
-      } else {
-        ctx.fillStyle = '#4a3a2e';
-        ctx.beginPath(); ctx.ellipse(-6 + sw * 5, -3, 6, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(6 - sw * 5, -3, 6, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.save();
-      ctx.translate(0, -bob);
-      torso(-50, officeLook ? -22 : -5, p.days);
-      ctx.fillStyle = SKIN;
-      if (officeLook) { // tay buông hai bên
-        ctx.beginPath(); ctx.ellipse(-15, -26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(15, -26, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
-      } else { // tay chắp
-        ctx.beginPath(); ctx.ellipse(0, -34, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      head(-62);
-      if (p.pose === 'drink') { // đưa cốc trà đá lên miệng
-        const ph = ((t + (p.seed || 0) * 1500) % 1500) / 1500;
-        const lift = ph < 0.3 ? ph / 0.3 : ph < 0.6 ? 1 : ph < 0.85 ? 1 - (ph - 0.6) / 0.25 : 0;
-        const gy = -32 - lift * 16;
-        drawTeaGlass(10, gy);
-        ctx.fillStyle = SKIN;
-        ctx.beginPath(); ctx.ellipse(12, gy + 4, 4, 4.6, 0, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.restore();
-      topOfHead = -75 - bob;
+      const walking = p.pose === 'walk' || (p.pose === 'bbq' && p.moving);
+      if (walking) STEP = Math.sin(t / 110);
+      if (p.pose === 'drink' || p.pose === 'bbq') { v = 'f'; hold = p.pose; }
+      if (p.carry) { v = 'f'; hold = 'carry'; } // phục vụ đang bê món
     }
-    if (p.pose !== 'bow' && p.pose !== 'sleep') drawHandItem(t);
-    if (wearing.has('cat')) drawCat(-34, 0);
-    if (wearing.has('bird')) drawBird(-30, -40 - Math.abs(Math.sin(t / 300)) * 4);
-    if (wearing.has('staff') && p.pose !== 'bow' && p.pose !== 'sleep') { // tích trượng cầm bên phải
-      ctx.strokeStyle = '#8a5a2b';
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(22, -2); ctx.lineTo(22, -88); ctx.stroke();
-      ctx.strokeStyle = '#e8b64c';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(22, -93, 6, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(17, -88, 2.5, 0, Math.PI * 2); ctx.arc(27, -88, 2.5, 0, Math.PI * 2); ctx.stroke();
-    }
+    if (v === 'l') { ctx.scale(-1, 1); v = 's'; }
+    if (mode === 'bow') fShape('rgba(0,0,0,' + 0.12 * bend + ')', function () { ctx.ellipse(0, -2, 30 + bend * 8, 8, 0, 0, Math.PI * 2); });
+    let top = drawFigure(p, v, mode, t, hold, bend);
+    top += seatDrop(mode, F_OUTFITS[FP.outfit]) + (mode === 'bow' && v !== 's' ? bend * (v === 'b' ? 18 : 24) : 0); // lạy: tên hạ theo đầu
     ctx.restore();
-    return y + topOfHead;
+    return y + top * FIG;
   }
 
   function drawLabel(name, x, y) {
     // Điện thoại dọc: cảnh bị thu nhỏ nên phóng chữ lại, để tên luôn cao ~10px trên màn hình.
-    const size = cw < ch ? 10 / scale : 8;
-    ctx.font = size + 'px sans-serif';
+    const size = cw < ch || IS_TOUCH ? 10 / scale : 8;
+    ctx.font = size + 'px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = size / 4;
@@ -3764,7 +4461,7 @@
 
   function drawCaught(x, y) {
     ctx.save();
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = 'bold 13px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
@@ -3776,45 +4473,22 @@
   }
 
   // Sếp: vest đen, cà vạt đỏ, kính đen, đi ngang lối giữa.
+  const BOSS = { id: 'boss', boss: true, gender: 'm', pose: 'walk', face: 'r', wear: [] }; // đi tuần từ trái sang phải
   function drawBoss(x, y, t) {
-    const sw = Math.sin(t / 110);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = 'rgba(0,0,0,.3)';
-    ctx.beginPath(); ctx.ellipse(0, 0, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#1b1f27';
-    ctx.fillRect(-11 + sw * 4, -30, 10, 27);
-    ctx.fillRect(1 - sw * 4, -30, 10, 27);
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.ellipse(-6 + sw * 5, -3, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(6 - sw * 5, -3, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#232a36';
-    robeShape(-58, -26, 32, 36);
-    ctx.fill();
-    ctx.fillStyle = '#f4f6f8';
-    ctx.beginPath(); ctx.moveTo(-6, -58); ctx.lineTo(6, -58); ctx.lineTo(0, -44); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#c0392b';
-    ctx.fillRect(-2, -55, 4, 14);
-    ctx.fillStyle = SKIN;
-    ctx.beginPath(); ctx.arc(0, -71, 14, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-11, -75, 9, 5);
-    ctx.fillRect(2, -75, 9, 5);
-    ctx.fillRect(-2, -74, 4, 2);
-    ctx.restore();
-    ctx.font = 'bold 11px sans-serif';
+    const top = drawMonk(BOSS, x, y, t, false);
+    ctx.font = 'bold 11px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(255,255,255,.9)';
-    ctx.strokeText('SẾP', x, y - 90);
+    ctx.strokeText('SẾP', x, top - 4);
     ctx.fillStyle = '#c0392b';
-    ctx.fillText('SẾP', x, y - 90);
+    ctx.fillText('SẾP', x, top - 4);
   }
 
   function drawZzz(x, y, t) {
     ctx.save();
-    ctx.font = 'bold 11px sans-serif';
+    ctx.font = 'bold 11px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(70,90,140,.9)';
@@ -3832,7 +4506,7 @@
     ctx.globalAlpha = Math.max(0, 1 - Math.max(0, ago - 700) / 300);
     ctx.translate(x, y);
     ctx.scale(s, s);
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
@@ -3844,7 +4518,7 @@
   }
 
   function drawBubble(text, x, y, until) {
-    ctx.font = '13px sans-serif';
+    ctx.font = '13px sans-serif, "Noto Color Emoji"';
     const lines = wrap(text, 170);
     const lh = 17;
     let w = 0;
@@ -3901,7 +4575,10 @@
       drawOfficeWall();
       drawOfficeFloor();
       DESKS.forEach(function (d) { items.push({ y: d.y, draw: function () { drawDesk(d); } }); });
-      CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
+      CHAIRS.forEach(function (c) {
+        items.push({ y: c.y, draw: function () { drawChair(c); } });
+        if (chairFace(c) === 'u') items.push({ y: c.y + 3, draw: function () { drawChairBack(c.x, c.y); } });
+      });
       PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
       const mwLeft = Math.max(0, (me.heatUntil || 0) - Date.now());
       let mwOn = mwLeft > 0;
@@ -3910,7 +4587,10 @@
       items.push({ y: ROUND_TABLE.y, draw: drawRoundTable });
       items.push({ y: MEET_TABLE.y, draw: drawMeetTable });
       items.push({ y: 836, draw: drawMeetSign });
-      MEET_CHAIRS.forEach(function (c) { items.push({ y: c.y, draw: function () { drawChair(c); } }); });
+      MEET_CHAIRS.forEach(function (c) {
+        items.push({ y: c.y, draw: function () { drawChair(c); } });
+        if (chairFace(c) === 'u') items.push({ y: c.y + 3, draw: function () { drawChairBack(c.x, c.y); } });
+      });
       const bp = bossPos(Date.now());
       if (bp) items.push({ y: bp.y, draw: function () { drawBoss(bp.x, bp.y, now); } });
     } else if (scene === 'restaurant') {
@@ -3921,6 +4601,7 @@
       items.push({ y: ONG_DIA.y, draw: function () { drawOngDia(now); } });
       items.push({ y: 510, draw: drawKitchenCounter });
       items.push({ y: TRA_DA.y, draw: drawTraDa });
+      items.push({ y: BBQ.y, draw: function () { drawBBQ(now); } });
       REST_PLANTS.forEach(function (p) { items.push({ y: p.y, draw: function () { drawPlant(p); } }); });
       REST_TABLES.forEach(function (t, ti) { items.push({ y: t.y, draw: function () { drawRestTable(t, ti, Date.now()); } }); });
       REST_SEATS.forEach(function (s) { items.push({ y: s.y - 1, draw: function () { drawStool(s); } }); });

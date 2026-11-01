@@ -1032,13 +1032,11 @@
   }
   // Ảnh nhỏ của món để dùng trong popup (thực đơn, chọn món).
   function dishIcon(id, cls) {
-    const url = foodPic(id);
-    if (!url) { const e = document.createElement('span'); e.className = cls || 'dish-ic'; e.textContent = '🍽️'; return e; } // chưa có hình
-    const img = document.createElement('img');
-    img.src = url;
-    img.alt = '';
-    img.className = cls || 'dish-ic';
-    return img;
+    const cv = document.createElement('canvas');
+    cv.width = 76; cv.height = 52;
+    cv.className = cls || 'dish-ic';
+    drawDish(cv.getContext('2d'), id, 38, 30, 2);
+    return cv;
   }
 
   function renderMenu() {
@@ -4154,27 +4152,8 @@
   function blob(col, x, y, rx, ry) { fShape(col, function () { ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); }); }
   const F_FOODS = {
     com: function (x, y) { fBowl(x, y, '#ffffff', function () { blob('#f6f6f0', x, y - 4.5, 6, 2.6); }); },
-    comtrang: function (x, y) { F_FOODS.com(x, y); },
     pho: function (x, y) { fBowl(x, y, '#e8c98a', function () { blob('#fff6dc', x - 2, y - 3.5, 3.5, 1.2); blob('#7cbf5a', x + 3, y - 3.2, 1.8, 1); }); },
-    bunhen: function (x, y) { fBowl(x, y, '#f0e6cf', function () { blob('#fffaf0', x, y - 3.5, 4.5, 1.3); blob('#d98c3a', x + 3, y - 3.4, 1.5, 0.9); }); },
     xoi: function (x, y) { fBowl(x, y, '#f2d36b', function () { blob('#f7df8a', x, y - 4.5, 6, 2.6); blob('#8fbf5a', x + 2, y - 5.5, 1.6, 1); }); },
-    canhchua: function (x, y) { fBowl(x, y, '#f0a04b', function () { blob('#7cbf5a', x - 2, y - 3.3, 1.8, 0.9); blob('#e8584a', x + 2.5, y - 3.3, 1.6, 0.9); }); },
-    thitkho: function (x, y) { fBowl(x, y, '#9a5a2a', function () { blob('#fff6dc', x - 2.5, y - 4, 2.3, 1.8); blob('#f2c230', x - 2.5, y - 4, 1.1, 0.9); blob('#7a3e1a', x + 2.8, y - 3.8, 2.6, 1.6); }); },
-    cakho: function (x, y) { fBowl(x, y, '#8a4a1e', function () { blob('#c87a3a', x, y - 4, 5, 1.8); }); },
-    laurieubau: function (x, y) { fBowl(x, y, '#e8584a', function () { blob('#f2a45a', x - 2, y - 3.5, 2.6, 1); blob('#7cbf5a', x + 3, y - 3.3, 1.8, 0.9); }); },
-    lauriebo: function (x, y) { F_FOODS.laurieubau(x, y); },
-    lauthai: function (x, y) { fBowl(x, y, '#e8762a', function () { blob('#f08a8a', x - 2, y - 3.5, 2.2, 1); blob('#7cbf5a', x + 3, y - 3.3, 1.8, 0.9); }); },
-    trungran: function (x, y) { fPlate(x, y, function () { blob('#ffffff', x, y + 1, 7, 2.6); blob('#f2b51e', x, y + 0.6, 2.8, 1.6); }); },
-    raumuong: function (x, y) { fPlate(x, y, function () { blob('#5aa83a', x, y + 0.5, 7, 2.8); blob('#f6efd8', x + 2, y, 1, 0.8); }); },
-    nomchanvit: function (x, y) { fPlate(x, y, function () { blob('#8fcf6a', x, y + 0.5, 6.5, 2.6); blob('#f0d9b0', x - 2, y, 2, 1); blob('#e8584a', x + 2.5, y - 0.2, 1, 0.8); }); },
-    dauphu: function (x, y) { fPlate(x, y, function () { blob('#d9482f', x, y + 0.8, 7, 2.6); [-3, 0, 3].forEach(function (d) { fShape('#f2d28a', function () { ctx.rect(x + d - 1.3, y - 1, 2.6, 2.4); }); }); }); },
-    nemran: function (x, y) { fPlate(x, y, function () { [-3, 0, 3].forEach(function (d) { fShape('#d9902e', function () { ctx.roundRect(x + d - 1.4, y - 2.5, 2.8, 6, 1.4); }); }); }); },
-    vangdau: function (x, y) { F_FOODS.nemran(x, y); },
-    banhtrang: function (x, y) { fPlate(x, y, function () { [-3, 0, 3].forEach(function (d) { fShape('#f6efe0', function () { ctx.roundRect(x + d - 1.4, y - 2.5, 2.8, 6, 1.4); }); }); }); },
-    suonxao: function (x, y) { fPlate(x, y, function () { [-3.5, 0, 3.5].forEach(function (d) { blob('#a8401e', x + d, y + 0.5, 2.2, 1.8); }); }); },
-    galuoc: function (x, y) { fPlate(x, y, function () { blob('#f2c870', x, y + 0.5, 6, 2.8); blob('#7cbf5a', x + 3, y - 0.8, 1.6, 0.8); }); },
-    banhxeo: function (x, y) { fPlate(x, y, function () { fShape('#f2b51e', function () { ctx.arc(x, y + 1.8, 6.5, Math.PI, 0); ctx.closePath(); }); }); },
-    sushi: function (x, y) { fPlate(x, y, function () { [-3.2, 3.2].forEach(function (d) { blob('#ffffff', x + d, y + 0.8, 2.8, 2); blob('#f28a5a', x + d, y - 0.3, 2.6, 1.2); }); }); },
     banhbao: function (x, y) { fShape('#f6f2e8', function () { ctx.arc(x, y + 2, 6, Math.PI, 0); ctx.closePath(); }); blob('#e8e0cc', x, y - 3.6, 1.4, 0.9); },
     chuoi: function (x, y) { fShape('#f5d33a', function () { ctx.arc(x + 2, y - 6, 9, Math.PI * 0.55, Math.PI * 0.95); ctx.arc(x + 4, y - 9, 9, Math.PI * 0.95, Math.PI * 0.55, true); ctx.closePath(); }); },
     cam: function (x, y) { fCircle('#f39a2a', x, y, 5.5); blob('#5aa83a', x + 2, y - 5.5, 2.2, 1.1); },
@@ -4183,6 +4162,14 @@
     cafe: function (x, y) { fShape('#f4f2ec', function () { ctx.roundRect(x - 4.5, y - 4, 9, 9, 2); }); blob('#6a3f1e', x, y - 4, 4, 1.2); },
     comhop: function (x, y) { fShape('#d9482f', function () { ctx.roundRect(x - 7, y - 3, 14, 8, 2); }); fShape('#ffffff', function () { ctx.rect(x - 5.5, y - 4.5, 11, 3); }); },
   };
+
+  // Món đang cầm / bê: món nhà hàng dùng hình vẽ chi tiết (drawDish), còn lại hình phẳng; k = cỡ hình phẳng
+  function drawFood(id, x, y, k) {
+    if (menuItem(id)) { drawDish(ctx, id, x, y, k * 0.58); return; }
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+    (F_FOODS[id] || F_FOODS.com)(0, 0);
+    ctx.restore();
+  }
 
   // Đầu + tóc + đồ đội theo hướng nhìn
   function fHead(v, hair, closed, tilt) {
@@ -4234,9 +4221,7 @@
     if (!(bowing && v === 'b')) fHead(v, hair, p.pose === 'sleep', bowing ? bend : 0);
     if (hold === 'carry') { // bê món bằng hai tay trước ngực
       [-1, 1].forEach(function (d) { fLimb(d * 8, -67, d * 9, -47, 4, o.hand[2] || fSkin()); });
-      ctx.save(); ctx.translate(0, -54); ctx.scale(1.6, 1.6);
-      (F_FOODS[p.carry] || F_FOODS.com)(0, 0);
-      ctx.restore();
+      drawFood(p.carry, 0, -54, 1.6);
       fCircle(fSkin(), -9, -46, 4.5); fCircle(fSkin(), 9, -46, 4.5);
     } else if (hold) { // tay phải đưa đồ ăn / cốc / xiên lên miệng, vẽ trước mặt
       const ph = ((t + (p.seed || 0) * 1700) % 1700) / 1700;
@@ -4246,11 +4231,7 @@
       fLimb(8, -67, rx, ry, sleeve ? 6.5 : 4, sleeve || fSkin());
       if (hold === 'drink') drawTeaGlass(rx - 2, ry - 6);
       if (hold === 'bbq') drawSkewer(ctx, p.food, rx - 4, ry - 8, -1.1, 0.9);
-      if (hold === 'eat') { // món nằm ngay dưới miệng, phóng to cho dễ nhìn
-        ctx.save(); ctx.translate(rx - 2, ry - 8); ctx.scale(1.3, 1.3);
-        (F_FOODS[p.food] || F_FOODS.com)(0, 0);
-        ctx.restore();
-      }
+      if (hold === 'eat') drawFood(p.food, rx - 2, ry - 8, 1.3); // món nằm ngay dưới miệng
       fCircle(fSkin(), rx, ry, 5.5);
     }
     if (FP.outfit === 'boss' && v !== 'b') { // kính đen của sếp

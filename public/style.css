@@ -187,6 +187,9 @@ body:not(.restaurant) .restaurant-only, body.restaurant .no-restaurant { display
   padding-bottom: max(14px, env(safe-area-inset-bottom));
   background: linear-gradient(rgba(42, 23, 12, 0), rgba(42, 23, 12, .92));
 }
+/* iPhone bật bàn phím: bỏ khoảng chừa vạch home (bàn phím đã che), ẩn cần điều khiển nằm sau bàn phím */
+html.kb-open #bottombar { padding-bottom: 8px; }
+html.kb-open #joystick { display: none; }
 .poses { display: flex; gap: 8px; }
 .poses button { padding: 5px 10px; }
 #chat-form { display: flex; gap: 10px; flex: 1; min-width: 220px; }

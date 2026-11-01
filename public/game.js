@@ -2409,6 +2409,7 @@
     const fitKeyboard = function () {
       const kb = Math.max(0, Math.round(window.innerHeight - vv.height)); // phần bị bàn phím che (đo trước khi cuộn về)
       document.documentElement.style.setProperty('--kb', kb + 'px');
+      document.documentElement.classList.toggle('kb-open', kb > 80); // bàn phím đang bật
       if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
       resize();
     };

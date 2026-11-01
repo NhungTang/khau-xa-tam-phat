@@ -198,6 +198,7 @@ html.kb-open #joystick { display: none; }
 .overlay {
   position: fixed;
   inset: 0;
+  bottom: var(--kb, 0px);             /* iPhone bật bàn phím: căn giữa trong phần màn hình còn thấy */
   display: flex;
   align-items: center;
   justify-content: center;

@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#3b2414">
   <title>Khẩu Xà Tâm Phật</title>
-  <!-- Emoji phẳng không viền (Noto) cho đồng bộ với hình vẽ nhân vật; chỉ tải những ký tự dùng tới -->
+  <!-- Emoji phẳng không viền (Noto) chỉ dùng trên Windows (emoji Windows có viền đen dày); iPhone/Android giữ emoji của máy
+       vì Safari không vẽ được định dạng màu của font Noto (hiện thành khoảng trắng). Chỉ tải những ký tự dùng tới. -->
+  <script>if (/Windows/.test(navigator.userAgent)) document.documentElement.classList.add('win-emoji');</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">

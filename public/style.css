@@ -19,7 +19,7 @@ html, body {
   overflow: hidden;
   background: var(--bg);
   color: var(--paper);
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Noto Color Emoji";
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;          /* không kéo/nảy cả trang khi vuốt */
 }
@@ -60,8 +60,9 @@ button { touch-action: manipulation; }
 #scene {
   position: fixed;
   inset: 0;
+  bottom: var(--kb, 0px);             /* iPhone: chừa chỗ bàn phím (xem fitKeyboard trong game.js) */
   width: 100%;
-  height: 100%;
+  height: calc(100% - var(--kb, 0px));
   display: block;
   touch-action: none;
 }
@@ -178,7 +179,7 @@ body:not(.restaurant) .restaurant-only, body.restaurant .no-restaurant { display
 
 #bottombar {
   position: fixed;
-  left: 0; right: 0; bottom: 0;
+  left: 0; right: 0; bottom: var(--kb, 0px); /* iPhone: nằm ngay trên bàn phím */
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -232,7 +233,8 @@ body:not(.restaurant) .restaurant-only, body.restaurant .no-restaurant { display
   font-size: 18px;
 }
 
-button, input, textarea, select { font-family: inherit; } /* nút, ô nhập cũng dùng emoji phẳng */
+html.win-emoji body { font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Noto Color Emoji"; } /* Windows: emoji phẳng không viền */
+button, input, textarea, select { font-family: inherit; } /* nút, ô nhập dùng chung font (cả emoji) */
 
 .sutra-text {
   white-space: pre-wrap;

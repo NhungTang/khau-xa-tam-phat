@@ -1,6 +1,9 @@
 (function () {
   'use strict';
 
+  // Chữ vẽ trên canvas: trên Windows thêm emoji phẳng Noto (xem index.html)
+  const EMOJI_FONT = document.documentElement.classList.contains('win-emoji') ? ', "Noto Color Emoji"' : '';
+
   // ---------- Hằng số thế giới ----------
   const W = 1400;
   const H = 1000;
@@ -2378,6 +2381,7 @@
 
   // ---------- Camera ----------
   let dpr = 1, cw = 0, ch = 0, scale = 1, camX = 0, camY = 0;
+  let barH = 0; // chiều cao thanh nút + ô chat dưới cùng (px màn hình)
   const IS_TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2); // điện thoại: nhẹ hơn, vẫn nét
@@ -2391,9 +2395,24 @@
       : IS_TOUCH && ch < 600 ? ch / 500
       : Math.min(cw / 900, ch / 640);
     scale = clamp(fit, 0.55, 1.6);
+    const bar = document.getElementById('bottombar');
+    barH = bar ? bar.offsetHeight : 0;
   }
   window.addEventListener('resize', resize);
   resize();
+  // iPhone: bàn phím bật thì trình duyệt cuộn trang lên cho thấy ô nhập → lộ nền trắng dưới trang, mất thanh trên.
+  // Giữ trang không cuộn, thu khung game theo phần màn hình còn thấy và đặt thanh chat ngay trên bàn phím.
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    const fitKeyboard = function () {
+      if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); // phần bị bàn phím che
+      document.documentElement.style.setProperty('--kb', kb + 'px');
+      resize();
+    };
+    vv.addEventListener('resize', fitKeyboard);
+    vv.addEventListener('scroll', fitKeyboard);
+  }
 
   function updateCamera() {
     const vw = cw / scale;
@@ -2404,7 +2423,8 @@
     const followY = scene === 'temple'
       ? Math.min(me.y - vh * 0.62, Math.max(STATUE_TOP - 60, me.y - vh * 0.75))
       : me.y - vh * 0.62;
-    camY = vh >= H ? (H - vh) / 2 : clamp(followY, 0, H - vh);
+    // cho cuộn quá đáy bản đồ một đoạn bằng thanh dưới, để đi sát đáy không bị ô chat che người
+    camY = vh >= H ? (H - vh) / 2 : clamp(followY, 0, H - vh + barH / scale);
   }
   function screenToWorld(sx, sy) {
     return { x: sx / scale + camX, y: sy / scale + camY };
@@ -2877,7 +2897,7 @@
     ctx.moveTo(610, 220); ctx.lineTo(650, 190); ctx.lineTo(690, 205); ctx.lineTo(740, 150); ctx.lineTo(790, 125);
     ctx.stroke();
     ctx.fillStyle = '#c0392b';
-    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 16px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText('KPI Q4', 606, 108);
@@ -2901,7 +2921,7 @@
     ctx.fillStyle = '#2b2f36';
     ctx.fillRect(1070, 300, 100, 30);
     ctx.fillStyle = '#f2c230';
-    ctx.font = 'bold 15px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 15px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('☕ PANTRY', 1120, 315);
@@ -3036,7 +3056,7 @@
     ctx.lineWidth = 2;
     ctx.strokeRect(1296, 772, 100, 28);
     ctx.fillStyle = '#2b2f36';
-    ctx.font = 'bold 13px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 13px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('PHÒNG HỌP', 1346, 786);
@@ -3198,9 +3218,9 @@
     ctx.lineWidth = 6;
     ctx.strokeRect(950, 205, 190, 130);
     ctx.fillStyle = '#f2ece2';
-    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 16px sans-serif' + EMOJI_FONT;
     ctx.fillText('THỰC ĐƠN', 1045, 224);
-    ctx.font = '12px sans-serif, "Noto Color Emoji"';
+    ctx.font = '12px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'left';
     MENU.slice(0, 5).forEach(function (m, i) { ctx.fillText(m.name + ' ... ' + m.price + 'k', 960, 246 + i * 17); });
     // tranh đồng lúa
@@ -3252,7 +3272,7 @@
     ctx.fillStyle = '#2b1a0e';
     ctx.fillRect(1172, 242, 126, 98);
     ctx.fillStyle = '#f5d98b';
-    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 16px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.fillText('BẾP', 1235, 220);
     ctx.fillText('LỄ TÂN', 210, 330);
@@ -3929,7 +3949,7 @@
         if (v !== 'b') fShape(FP.robe[1], function () { const k = v === 's' ? 0.62 : 1; ctx.moveTo(-6 * k, -70); ctx.lineTo(4 * k, -50); ctx.lineTo(6 * k, -70); ctx.closePath(); });
         if (FP.robeId === 'casa' && v === 'f') fShape('#b8521a', function () { ctx.moveTo(-6, -70); ctx.lineTo(-1, -70); ctx.lineTo(19, -13); ctx.lineTo(13, -11); ctx.closePath(); });
         if (v === 'f') {
-          ctx.fillStyle = FP.numCol; ctx.font = 'bold 9px sans-serif, "Noto Color Emoji"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = FP.numCol; ctx.font = 'bold 9px sans-serif' + EMOJI_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText(String(FP.days || 0), 0, -38);
         }
       },
@@ -4393,7 +4413,7 @@
   function drawLabel(name, x, y) {
     // Điện thoại dọc: cảnh bị thu nhỏ nên phóng chữ lại, để tên luôn cao ~10px trên màn hình.
     const size = cw < ch || IS_TOUCH ? 10 / scale : 8;
-    ctx.font = size + 'px sans-serif, "Noto Color Emoji"';
+    ctx.font = size + 'px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = size / 4;
@@ -4461,7 +4481,7 @@
 
   function drawCaught(x, y) {
     ctx.save();
-    ctx.font = 'bold 13px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 13px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
@@ -4476,7 +4496,7 @@
   const BOSS = { id: 'boss', boss: true, gender: 'm', pose: 'walk', face: 'r', wear: [] }; // đi tuần từ trái sang phải
   function drawBoss(x, y, t) {
     const top = drawMonk(BOSS, x, y, t, false);
-    ctx.font = 'bold 11px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 11px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3;
@@ -4488,7 +4508,7 @@
 
   function drawZzz(x, y, t) {
     ctx.save();
-    ctx.font = 'bold 11px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 11px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(70,90,140,.9)';
@@ -4506,7 +4526,7 @@
     ctx.globalAlpha = Math.max(0, 1 - Math.max(0, ago - 700) / 300);
     ctx.translate(x, y);
     ctx.scale(s, s);
-    ctx.font = 'bold 16px sans-serif, "Noto Color Emoji"';
+    ctx.font = 'bold 16px sans-serif' + EMOJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 4;
@@ -4518,7 +4538,7 @@
   }
 
   function drawBubble(text, x, y, until) {
-    ctx.font = '13px sans-serif, "Noto Color Emoji"';
+    ctx.font = '13px sans-serif' + EMOJI_FONT;
     const lines = wrap(text, 170);
     const lh = 17;
     let w = 0;
